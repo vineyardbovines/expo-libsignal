@@ -46,7 +46,7 @@ export async function publishPreKeyBundle(
     signedPreKeyPublic: signedPreKey.publicKey(),
     signedPreKeySignature: signedPreKey.signature(),
     kyberPreKeyId: signedPreKeyId,
-    kyberPreKeyPublic: new Uint8Array(), // PLACEHOLDER — fixed in Task 26
+    kyberPreKeyPublic: kyberPreKey.kyberPublicKey(),
     kyberPreKeySignature: kyberPreKey.signature(),
     preKeyId,
     preKeyPublic: preKey.publicKey(),

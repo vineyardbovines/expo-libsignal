@@ -6,6 +6,7 @@ interface KyberPreKeyRecordRef {
   timestamp(): number
   signature(): Uint8Array
   serialize(): Uint8Array
+  kyberPublicKey(): Uint8Array
 }
 
 export class KyberPreKeyRecord {
@@ -53,6 +54,10 @@ export class KyberPreKeyRecord {
 
   serialize(): Uint8Array {
     return this.ref.serialize()
+  }
+
+  kyberPublicKey(): Uint8Array {
+    return this.ref.kyberPublicKey()
   }
 
   /** @internal */

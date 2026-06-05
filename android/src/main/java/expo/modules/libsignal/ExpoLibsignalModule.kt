@@ -215,6 +215,9 @@ class ExpoLibsignalModule : Module() {
       Function("timestamp") { ref: KyberPreKeyRecordRef -> ref.record.timestamp.toDouble() }
       Function("signature") { ref: KyberPreKeyRecordRef -> ref.record.signature }
       Function("serialize") { ref: KyberPreKeyRecordRef -> ref.record.serialize() }
+      Function("kyberPublicKey") { ref: KyberPreKeyRecordRef ->
+        ref.record.keyPair.publicKey.serialize()
+      }
     }
 
     AsyncFunction("createPreKeyBundle") Coroutine { args: PreKeyBundleArgs ->

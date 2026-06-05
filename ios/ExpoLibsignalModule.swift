@@ -202,6 +202,10 @@ public final class ExpoLibsignalModule: Module {
       Function("serialize") { (ref: KyberPreKeyRecordRef) -> Data in
         return ref.record.serialize()
       }
+      Function("kyberPublicKey") { (ref: KyberPreKeyRecordRef) -> Data in
+        let pk = try ref.record.publicKey()
+        return Data(pk.serialize())
+      }
     }
 
     AsyncFunction("createPreKeyBundle") { (args: PreKeyBundleArgs) -> PreKeyBundleRef in
