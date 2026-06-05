@@ -164,10 +164,7 @@ function injectAppDesugaring(contents: string): string {
   const hasCompileOptions = /android\s*\{[\s\S]*?compileOptions\s*\{/.test(contents)
   let next = contents
   if (hasCompileOptions) {
-    next = next.replace(
-      /(compileOptions\s*\{)/,
-      `$1\n${compileOptionsSnippet}`,
-    )
+    next = next.replace(/(compileOptions\s*\{)/, `$1\n${compileOptionsSnippet}`)
   } else {
     next = next.replace(
       /(android\s*\{)/,
