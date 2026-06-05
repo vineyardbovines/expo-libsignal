@@ -1,5 +1,5 @@
-import { NativeModule, requireNativeModule } from 'expo';
+import { NativeModule, requireNativeModule } from 'expo'
 
-declare class ExpoLibsignalModule extends NativeModule<{}> {}
+declare class ExpoLibsignalModule extends NativeModule<Record<string, never>> {}
 
-export default requireNativeModule<ExpoLibsignalModule>('ExpoLibsignal');
+export default requireNativeModule<ExpoLibsignalModule>('ExpoLibsignal')
