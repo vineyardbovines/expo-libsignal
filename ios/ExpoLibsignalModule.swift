@@ -2,6 +2,20 @@ import Foundation
 import ExpoModulesCore
 import LibSignalClient
 
+struct PreKeyBundleArgs: Record {
+  @Field var registrationId: UInt32 = 0
+  @Field var deviceId: UInt32 = 0
+  @Field var identityKey: PublicIdentityKeyRef? = nil
+  @Field var signedPreKeyId: UInt32 = 0
+  @Field var signedPreKeyPublic: PublicKeyRef? = nil
+  @Field var signedPreKeySignature: Data = Data()
+  @Field var kyberPreKeyId: UInt32 = 0
+  @Field var kyberPreKeyPublic: Data = Data()
+  @Field var kyberPreKeySignature: Data = Data()
+  @Field var preKeyId: UInt32? = nil
+  @Field var preKeyPublic: PublicKeyRef? = nil
+}
+
 public final class ExpoLibsignalModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ExpoLibsignal")
@@ -187,6 +201,71 @@ public final class ExpoLibsignalModule: Module {
       }
       Function("serialize") { (ref: KyberPreKeyRecordRef) -> Data in
         return ref.record.serialize()
+      }
+    }
+
+    AsyncFunction("createPreKeyBundle") { (args: PreKeyBundleArgs) -> PreKeyBundleRef in
+      do {
+        guard let identityKeyRef = args.identityKey else {
+          throw Exception(name: "LibsignalError", description: "identityKey is required")
+        }
+        guard let signedPreKeyPublicRef = args.signedPreKeyPublic else {
+          throw Exception(name: "LibsignalError", description: "signedPreKeyPublic is required")
+        }
+        let kyberPub = try KEMPublicKey(args.kyberPreKeyPublic)
+        let bundle: PreKeyBundle
+        if let preKeyId = args.preKeyId, let preKeyPublicRef = args.preKeyPublic {
+          bundle = try PreKeyBundle(
+            registrationId: args.registrationId,
+            deviceId: args.deviceId,
+            prekeyId: preKeyId,
+            prekey: preKeyPublicRef.key,
+            signedPrekeyId: args.signedPreKeyId,
+            signedPrekey: signedPreKeyPublicRef.key,
+            signedPrekeySignature: args.signedPreKeySignature,
+            identity: identityKeyRef.key,
+            kyberPrekeyId: args.kyberPreKeyId,
+            kyberPrekey: kyberPub,
+            kyberPrekeySignature: args.kyberPreKeySignature
+          )
+        } else {
+          bundle = try PreKeyBundle(
+            registrationId: args.registrationId,
+            deviceId: args.deviceId,
+            signedPrekeyId: args.signedPreKeyId,
+            signedPrekey: signedPreKeyPublicRef.key,
+            signedPrekeySignature: args.signedPreKeySignature,
+            identity: identityKeyRef.key,
+            kyberPrekeyId: args.kyberPreKeyId,
+            kyberPrekey: kyberPub,
+            kyberPrekeySignature: args.kyberPreKeySignature
+          )
+        }
+        return PreKeyBundleRef(bundle: bundle)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(PreKeyBundleRef.self) {
+      Function("registrationId") { (ref: PreKeyBundleRef) -> UInt32 in ref.bundle.registrationId }
+      Function("deviceId") { (ref: PreKeyBundleRef) -> UInt32 in ref.bundle.deviceId }
+      Function("identityKey") { (ref: PreKeyBundleRef) -> PublicIdentityKeyRef in
+        PublicIdentityKeyRef(key: ref.bundle.identityKey)
+      }
+      Function("signedPreKeyId") { (ref: PreKeyBundleRef) -> UInt32 in ref.bundle.signedPreKeyId }
+      Function("signedPreKeyPublic") { (ref: PreKeyBundleRef) -> PublicKeyRef in
+        PublicKeyRef(key: ref.bundle.signedPreKeyPublic)
+      }
+      Function("signedPreKeySignature") { (ref: PreKeyBundleRef) -> Data in ref.bundle.signedPreKeySignature }
+      Function("kyberPreKeyId") { (ref: PreKeyBundleRef) -> UInt32 in ref.bundle.kyberPreKeyId }
+      Function("kyberPreKeyPublic") { (ref: PreKeyBundleRef) -> Data in
+        Data(ref.bundle.kyberPreKeyPublic.serialize())
+      }
+      Function("kyberPreKeySignature") { (ref: PreKeyBundleRef) -> Data in ref.bundle.kyberPreKeySignature }
+      Function("preKeyId") { (ref: PreKeyBundleRef) -> UInt32? in ref.bundle.preKeyId }
+      Function("preKeyPublic") { (ref: PreKeyBundleRef) -> PublicKeyRef? in
+        ref.bundle.preKeyPublic.map { PublicKeyRef(key: $0) }
       }
     }
   }
