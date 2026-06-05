@@ -50,5 +50,38 @@ public final class ExpoLibsignalModule: Module {
         return ref.key.serialize()
       }
     }
+
+    AsyncFunction("deserializePublicKey") { (bytes: Data) -> PublicKeyRef in
+      do {
+        let key = try PublicKey(bytes)
+        return PublicKeyRef(key: key)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(PublicKeyRef.self) {
+      Function("serialize") { (ref: PublicKeyRef) -> Data in
+        return Data(ref.key.serialize())
+      }
+    }
+
+    AsyncFunction("createProtocolAddress") { (name: String, deviceId: UInt32) -> ProtocolAddressRef in
+      do {
+        let addr = try ProtocolAddress(name: name, deviceId: deviceId)
+        return ProtocolAddressRef(address: addr)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(ProtocolAddressRef.self) {
+      Function("name") { (ref: ProtocolAddressRef) -> String in
+        return ref.address.name
+      }
+      Function("deviceId") { (ref: ProtocolAddressRef) -> UInt32 in
+        return ref.address.deviceId
+      }
+    }
   }
 }
