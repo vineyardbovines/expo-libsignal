@@ -1,3 +1,6 @@
+# expo-libsignal: FFI prebuild checksum
+ENV['LIBSIGNAL_FFI_PREBUILD_CHECKSUM'] = '273236d44fdd2eb76f18de0d4229dd82d73ac1edb2e52e71885c6f98843a9c0d'
+
 require File.join(File.dirname(`node --print "require.resolve('expo/package.json')"`), "scripts/autolinking")
 require File.join(File.dirname(`node --print "require.resolve('react-native/package.json')"`), "scripts/react_native_pods")
 
@@ -21,7 +24,7 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '16.4'
 
 prepare_react_native_project!
 
-# expo-libsignal: LibSignalClient (v0.94.4)
+# expo-libsignal: LibSignalClient pod (v0.94.4)
 pod 'LibSignalClient', :podspec => 'https://raw.githubusercontent.com/signalapp/libsignal/v0.94.4/LibSignalClient.podspec'
 
 target 'expolibsignalexample' do
@@ -63,5 +66,23 @@ target 'expolibsignalexample' do
       :mac_catalyst_enabled => false,
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
-  end
+      # expo-libsignal: link FFI into consumer targets
+    installer.aggregate_targets.each do |aggregate_target|
+      aggregate_target.user_build_configurations.each do |config_name, _|
+        xcconfig_path = aggregate_target.xcconfig_path(config_name)
+        next unless File.exist?(xcconfig_path)
+        lines = File.read(xcconfig_path).lines
+        already_patched = lines.any? { |l| l.include?('LIBSIGNAL_FFI_LIB_TO_LINK') }
+        next if already_patched
+        ldflags_idx = lines.index { |l| l =~ /^OTHER_LDFLAGS\s*=/ }
+        addition = '$(LIBSIGNAL_FFI_LIB_TO_LINK)'
+        if ldflags_idx
+          lines[ldflags_idx] = lines[ldflags_idx].chomp + " " + addition + "\n"
+        else
+          lines << "OTHER_LDFLAGS = $(inherited) " + addition + "\n"
+        end
+        File.write(xcconfig_path, lines.join)
+      end
+    end
+end
 end
