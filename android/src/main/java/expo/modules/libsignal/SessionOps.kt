@@ -140,3 +140,62 @@ internal fun runEncryptOp(args: EncryptArgs): EncryptResult {
   }
   return result
 }
+
+class DecryptPreKeySignalArgs : Record {
+  @Field var message: PreKeySignalMessageRef? = null
+  @Field var remoteAddress: ProtocolAddressRef? = null
+  @Field var localAddress: ProtocolAddressRef? = null
+  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = null
+  @Field var ourRegistrationId: Int = 0
+  @Field var existingSession: SessionRecordRef? = null
+  @Field var existingRemoteIdentity: PublicIdentityKeyRef? = null
+  @Field var preKey: PreKeyRecordRef? = null
+  @Field var signedPreKey: SignedPreKeyRecordRef? = null
+  @Field var kyberPreKey: KyberPreKeyRecordRef? = null
+}
+
+class DecryptPreKeySignalResult : Record {
+  @Field var plaintext: ByteArray = ByteArray(0)
+  @Field var newSession: SessionRecordRef? = null
+  @Field var identityChange: String? = null
+  @Field var consumedPreKeyId: Int? = null
+  @Field var kyberPreKeyId: Int = 0
+}
+
+internal fun runDecryptPreKeySignalOp(args: DecryptPreKeySignalArgs): DecryptPreKeySignalResult {
+  val msg = args.message ?: throw IllegalArgumentException("message required")
+  val remote = args.remoteAddress ?: throw IllegalArgumentException("remoteAddress required")
+  val local = args.localAddress ?: throw IllegalArgumentException("localAddress required")
+  val identity = args.ourIdentityKeyPair ?: throw IllegalArgumentException("ourIdentityKeyPair required")
+  val signedPreKey = args.signedPreKey ?: throw IllegalArgumentException("signedPreKey required")
+  val kyberPreKey = args.kyberPreKey ?: throw IllegalArgumentException("kyberPreKey required")
+
+  val store = seedStore(
+    identity = identity,
+    registrationId = args.ourRegistrationId,
+    remoteAddress = remote,
+    existingSession = args.existingSession,
+    existingRemoteIdentity = args.existingRemoteIdentity,
+  )
+
+  args.preKey?.let { store.storePreKey(it.record.id, it.record) }
+  store.storeSignedPreKey(signedPreKey.record.id, signedPreKey.record)
+  store.storeKyberPreKey(kyberPreKey.record.id, kyberPreKey.record)
+
+  val cipher = SessionCipher(store, store, store, store, store, remote.address, local.address)
+  val plaintext = cipher.decrypt(msg.message)
+
+  val newSession = store.loadSession(remote.address)
+    ?: throw IllegalStateException("decryptPreKeySignalOp produced no session")
+
+  val msgPreKeyId = msg.message.preKeyId
+  val consumed = if (msgPreKeyId.isPresent) msgPreKeyId.get() else null
+
+  val result = DecryptPreKeySignalResult()
+  result.plaintext = plaintext
+  result.newSession = SessionRecordRef(newSession)
+  result.identityChange = identityChangeString(store, remote, args.existingRemoteIdentity)
+  result.consumedPreKeyId = consumed
+  result.kyberPreKeyId = kyberPreKey.record.id
+  return result
+}
