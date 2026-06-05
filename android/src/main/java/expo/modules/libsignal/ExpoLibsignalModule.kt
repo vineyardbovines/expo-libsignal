@@ -9,19 +9,24 @@ class ExpoLibsignalModule : Module() {
   override fun definition() = ModuleDefinition {
     Name("ExpoLibsignal")
 
+    // Factory functions live at module level. Inside a Class block, an
+    // AsyncFunction is dispatched as an instance method, which has no
+    // receiver during construction.
+    AsyncFunction("generateIdentityKeyPair") Coroutine { ->
+      IdentityKeyPairRef(SignalIdentityKeyPair.generate())
+    }
+
+    AsyncFunction("deserializeIdentityKeyPair") Coroutine { bytes: ByteArray ->
+      try {
+        IdentityKeyPairRef(SignalIdentityKeyPair(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    // Instance methods. The first parameter (typed as the SharedObject) is
+    // auto-bound to `this` on the JS side.
     Class(IdentityKeyPairRef::class) {
-      AsyncFunction("generate") Coroutine { ->
-        IdentityKeyPairRef(SignalIdentityKeyPair.generate())
-      }
-
-      AsyncFunction("deserialize") Coroutine { bytes: ByteArray ->
-        try {
-          IdentityKeyPairRef(SignalIdentityKeyPair(bytes))
-        } catch (e: Throwable) {
-          throw RuntimeException(mapSignalError(e).message)
-        }
-      }
-
       Function("serialize") { ref: IdentityKeyPairRef ->
         ref.keyPair.serialize()
       }
