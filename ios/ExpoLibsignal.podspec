@@ -27,5 +27,20 @@ Pod::Spec.new do |s|
     'SWIFT_COMPILATION_MODE' => 'wholemodule'
   }
 
+  # Propagate LibSignalClient's FFI build variables and linker flag down to any
+  # target that depends on us, since upstream's podspec scopes them only to
+  # itself. Without this, consumers' OTHER_LDFLAGS expands $(LIBSIGNAL_FFI_LIB_TO_LINK)
+  # to an empty string and the final link fails with "Undefined symbol: _signal_*".
+  s.user_target_xcconfig = {
+    'CARGO_BUILD_TARGET[sdk=iphoneos*]' => 'aarch64-apple-ios',
+    'CARGO_BUILD_TARGET[sdk=iphoneos*][arch=arm64e]' => 'arm64e-apple-ios',
+    'CARGO_BUILD_TARGET[sdk=iphonesimulator*][arch=*]' => 'x86_64-apple-ios',
+    'CARGO_BUILD_TARGET[sdk=iphonesimulator*][arch=arm64]' => 'aarch64-apple-ios-sim',
+    'LIBSIGNAL_FFI_TEMP_DIR' => '$(OBJROOT)/Pods.build/libsignal_ffi',
+    'LIBSIGNAL_FFI_BUILD_PATH' => 'target/$(CARGO_BUILD_TARGET)/release',
+    'LIBSIGNAL_FFI_LIB_TO_LINK' => '$(LIBSIGNAL_FFI_TEMP_DIR)/$(LIBSIGNAL_FFI_BUILD_PATH)/libsignal_ffi.a',
+    'OTHER_LDFLAGS' => '$(inherited) $(LIBSIGNAL_FFI_LIB_TO_LINK)'
+  }
+
   s.source_files = "**/*.{h,m,mm,swift,hpp,cpp}"
 end

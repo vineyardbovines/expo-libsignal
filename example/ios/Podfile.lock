@@ -2138,7 +2138,7 @@ SPEC CHECKSUMS:
   ExpoFileSystem: d730a1cb33f2c91dec01561f0d710054fda32ae9
   ExpoFont: 6fe496f2be617ed4367f159f215dcc4ba27d37d6
   ExpoKeepAwake: 359c47a1d9ccc3a3c519bca6e39562cce230c5bb
-  ExpoLibsignal: dc914af0203c2a5eacaf8b65544919052b65a222
+  ExpoLibsignal: ba194a3cc723d4a3b6090a7af72eaf3b944ab77d
   ExpoLogBox: 7aa03244fe5eeced5129e4ec7ad5bd9a3994378e
   ExpoModulesCore: 787e3ac2a8f8798c9837be2a1b5abb719bab6342
   ExpoModulesJSI: f25a013ea9a79904bdd535e4bea0872e155cde09
