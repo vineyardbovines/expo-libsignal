@@ -5,7 +5,13 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import org.signal.libsignal.protocol.IdentityKeyPair as SignalIdentityKeyPair
 import org.signal.libsignal.protocol.SignalProtocolAddress
+import org.signal.libsignal.protocol.ecc.ECKeyPair
 import org.signal.libsignal.protocol.ecc.ECPublicKey
+import org.signal.libsignal.protocol.kem.KEMKeyPair
+import org.signal.libsignal.protocol.kem.KEMKeyType
+import org.signal.libsignal.protocol.state.KyberPreKeyRecord
+import org.signal.libsignal.protocol.state.PreKeyRecord
+import org.signal.libsignal.protocol.state.SignedPreKeyRecord
 
 class ExpoLibsignalModule : Module() {
   override fun definition() = ModuleDefinition {
@@ -117,6 +123,77 @@ class ExpoLibsignalModule : Module() {
       Function("deviceId") { ref: ProtocolAddressRef ->
         ref.address.deviceId
       }
+    }
+
+    AsyncFunction("generatePreKeyRecord") Coroutine { id: Int ->
+      val keyPair = ECKeyPair.generate()
+      PreKeyRecordRef(PreKeyRecord(id, keyPair))
+    }
+
+    AsyncFunction("deserializePreKeyRecord") Coroutine { bytes: ByteArray ->
+      try {
+        PreKeyRecordRef(PreKeyRecord(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    Class(PreKeyRecordRef::class) {
+      Constructor {
+        throw IllegalStateException("PreKeyRecordRef is not directly constructable from JS. Use PreKeyRecord.generate().")
+      }
+      Function("id") { ref: PreKeyRecordRef -> ref.record.id }
+      Function("publicKey") { ref: PreKeyRecordRef -> PublicKeyRef(ref.record.keyPair.publicKey) }
+      Function("serialize") { ref: PreKeyRecordRef -> ref.record.serialize() }
+    }
+
+    AsyncFunction("generateSignedPreKeyRecord") Coroutine { id: Int, identity: IdentityKeyPairRef, timestamp: Double ->
+      val keyPair = ECKeyPair.generate()
+      val signature = identity.keyPair.privateKey.calculateSignature(keyPair.publicKey.serialize())
+      SignedPreKeyRecordRef(SignedPreKeyRecord(id, timestamp.toLong(), keyPair, signature))
+    }
+
+    AsyncFunction("deserializeSignedPreKeyRecord") Coroutine { bytes: ByteArray ->
+      try {
+        SignedPreKeyRecordRef(SignedPreKeyRecord(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    Class(SignedPreKeyRecordRef::class) {
+      Constructor {
+        throw IllegalStateException("SignedPreKeyRecordRef is not directly constructable from JS. Use SignedPreKeyRecord.generate().")
+      }
+      Function("id") { ref: SignedPreKeyRecordRef -> ref.record.id }
+      Function("timestamp") { ref: SignedPreKeyRecordRef -> ref.record.timestamp.toDouble() }
+      Function("publicKey") { ref: SignedPreKeyRecordRef -> PublicKeyRef(ref.record.keyPair.publicKey) }
+      Function("signature") { ref: SignedPreKeyRecordRef -> ref.record.signature }
+      Function("serialize") { ref: SignedPreKeyRecordRef -> ref.record.serialize() }
+    }
+
+    AsyncFunction("generateKyberPreKeyRecord") Coroutine { id: Int, identity: IdentityKeyPairRef, timestamp: Double ->
+      val keyPair = KEMKeyPair.generate(KEMKeyType.KYBER_1024)
+      val signature = identity.keyPair.privateKey.calculateSignature(keyPair.publicKey.serialize())
+      KyberPreKeyRecordRef(KyberPreKeyRecord(id, timestamp.toLong(), keyPair, signature))
+    }
+
+    AsyncFunction("deserializeKyberPreKeyRecord") Coroutine { bytes: ByteArray ->
+      try {
+        KyberPreKeyRecordRef(KyberPreKeyRecord(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    Class(KyberPreKeyRecordRef::class) {
+      Constructor {
+        throw IllegalStateException("KyberPreKeyRecordRef is not directly constructable from JS. Use KyberPreKeyRecord.generate().")
+      }
+      Function("id") { ref: KyberPreKeyRecordRef -> ref.record.id }
+      Function("timestamp") { ref: KyberPreKeyRecordRef -> ref.record.timestamp.toDouble() }
+      Function("signature") { ref: KyberPreKeyRecordRef -> ref.record.signature }
+      Function("serialize") { ref: KyberPreKeyRecordRef -> ref.record.serialize() }
     }
   }
 }

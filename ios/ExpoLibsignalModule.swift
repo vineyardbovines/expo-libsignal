@@ -83,5 +83,111 @@ public final class ExpoLibsignalModule: Module {
         return ref.address.deviceId
       }
     }
+
+    AsyncFunction("generatePreKeyRecord") { (id: UInt32) -> PreKeyRecordRef in
+      do {
+        let privateKey = PrivateKey.generate()
+        let record = try PreKeyRecord(id: id, privateKey: privateKey)
+        return PreKeyRecordRef(record: record)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("deserializePreKeyRecord") { (bytes: Data) -> PreKeyRecordRef in
+      do {
+        let record = try PreKeyRecord(bytes: bytes)
+        return PreKeyRecordRef(record: record)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(PreKeyRecordRef.self) {
+      Function("id") { (ref: PreKeyRecordRef) -> UInt32 in
+        return ref.record.id
+      }
+      Function("publicKey") { (ref: PreKeyRecordRef) -> PublicKeyRef in
+        let pk = try ref.record.publicKey()
+        return PublicKeyRef(key: pk)
+      }
+      Function("serialize") { (ref: PreKeyRecordRef) -> Data in
+        return ref.record.serialize()
+      }
+    }
+
+    AsyncFunction("generateSignedPreKeyRecord") { (id: UInt32, identity: IdentityKeyPairRef, timestamp: Double) -> SignedPreKeyRecordRef in
+      do {
+        let privateKey = PrivateKey.generate()
+        let signature = identity.keyPair.privateKey.generateSignature(message: privateKey.publicKey.serialize())
+        let record = try SignedPreKeyRecord(id: id, timestamp: UInt64(timestamp), privateKey: privateKey, signature: signature)
+        return SignedPreKeyRecordRef(record: record)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("deserializeSignedPreKeyRecord") { (bytes: Data) -> SignedPreKeyRecordRef in
+      do {
+        let record = try SignedPreKeyRecord(bytes: bytes)
+        return SignedPreKeyRecordRef(record: record)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(SignedPreKeyRecordRef.self) {
+      Function("id") { (ref: SignedPreKeyRecordRef) -> UInt32 in
+        return ref.record.id
+      }
+      Function("timestamp") { (ref: SignedPreKeyRecordRef) -> Double in
+        return Double(ref.record.timestamp)
+      }
+      Function("publicKey") { (ref: SignedPreKeyRecordRef) -> PublicKeyRef in
+        let pk = try ref.record.publicKey()
+        return PublicKeyRef(key: pk)
+      }
+      Function("signature") { (ref: SignedPreKeyRecordRef) -> Data in
+        return ref.record.signature
+      }
+      Function("serialize") { (ref: SignedPreKeyRecordRef) -> Data in
+        return ref.record.serialize()
+      }
+    }
+
+    AsyncFunction("generateKyberPreKeyRecord") { (id: UInt32, identity: IdentityKeyPairRef, timestamp: Double) -> KyberPreKeyRecordRef in
+      do {
+        let keyPair = KEMKeyPair.generate()
+        let signature = identity.keyPair.privateKey.generateSignature(message: keyPair.publicKey.serialize())
+        let record = try KyberPreKeyRecord(id: id, timestamp: UInt64(timestamp), keyPair: keyPair, signature: signature)
+        return KyberPreKeyRecordRef(record: record)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("deserializeKyberPreKeyRecord") { (bytes: Data) -> KyberPreKeyRecordRef in
+      do {
+        let record = try KyberPreKeyRecord(bytes: bytes)
+        return KyberPreKeyRecordRef(record: record)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(KyberPreKeyRecordRef.self) {
+      Function("id") { (ref: KyberPreKeyRecordRef) -> UInt32 in
+        return ref.record.id
+      }
+      Function("timestamp") { (ref: KyberPreKeyRecordRef) -> Double in
+        return Double(ref.record.timestamp)
+      }
+      Function("signature") { (ref: KyberPreKeyRecordRef) -> Data in
+        return ref.record.signature
+      }
+      Function("serialize") { (ref: KyberPreKeyRecordRef) -> Data in
+        return ref.record.serialize()
+      }
+    }
   }
 }
