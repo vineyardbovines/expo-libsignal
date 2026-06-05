@@ -2,9 +2,9 @@
 
 Expo Module wrapping [signalapp/libsignal](https://github.com/signalapp/libsignal) — the Signal Protocol cryptography library — for React Native and Expo apps.
 
-**Status:** Pre-1.0. API is unstable. Not yet published to npm.
+**Status:** Pre-1.0. API is unstable. Not yet published to npm. Foundation (identity keys) is shipped; 1:1 messaging, groups, sealed sender, and the SQLCipher store layer are scoped for later phases.
 
-**License:** AGPL-3.0 (inherited from libsignal upstream).
+**License:** AGPL-3.0 (inherited from libsignal upstream). If you link this library into a binary you distribute, your binary must also be AGPL-3.0 or compatible. See [LICENSE](./LICENSE).
 
 ## Supported
 
@@ -13,12 +13,106 @@ Expo Module wrapping [signalapp/libsignal](https://github.com/signalapp/libsigna
 - iOS 15.0+
 - Android API 24+
 
+Not supported (yet):
+- Web (WASM)
+- Old (legacy bridge) architecture
+
+## Installation (when published)
+
+```bash
+bun add expo-libsignal
+```
+
+Add the config plugin to your `app.json` or `app.config.ts`:
+
+```json
+{
+  "expo": {
+    "plugins": ["expo-libsignal"]
+  }
+}
+```
+
+Then prebuild:
+
+```bash
+bunx expo prebuild --clean
+```
+
+The plugin handles the platform-specific plumbing automatically:
+- **iOS:** Injects the LibSignalClient pod into your Podfile (Signal hosts the podspec at their own URL, not on the CocoaPods trunk). Sets the FFI download checksum. Propagates the FFI linker flags from LibSignalClient's pod scope to your app target via `user_target_xcconfig`.
+- **Android:** Injects Signal's Maven repo (`https://build-artifacts.signal.org/libraries/maven/`) into your root `build.gradle`. Enables core library desugaring in your `app/build.gradle` so libsignal's Java 8+ APIs work on the minSdk we target (24).
+
+## Usage
+
+Generate an identity keypair, serialize it, restore it, derive the public key:
+
+```typescript
+import { IdentityKeyPair } from 'expo-libsignal'
+
+// First-run: generate a fresh identity (X25519 keypair)
+const kp = await IdentityKeyPair.generate()
+
+// Serialize to bytes for storage
+const serialized = kp.serialize()
+// → Uint8Array, 64 bytes (32-byte public key + 32-byte private key)
+
+// Get the public identity key (33 bytes — 1 type byte + 32 raw key)
+const publicKey = kp.publicKey().serialize()
+
+// Restore from bytes
+const restored = await IdentityKeyPair.deserialize(serialized)
+```
+
+Errors come back as typed subclasses of `LibsignalError`:
+
+```typescript
+import {
+  IdentityKeyPair,
+  LibsignalError,
+  UntrustedIdentityError,
+  InvalidMessageError,
+} from 'expo-libsignal'
+
+try {
+  await IdentityKeyPair.deserialize(corruptedBytes)
+} catch (e) {
+  if (e instanceof InvalidMessageError) {
+    // Bytes weren't a valid serialized keypair
+  } else if (e instanceof LibsignalError) {
+    // Some other libsignal-side issue
+  }
+}
+```
+
 ## Roadmap
 
 | Phase | Status |
 |---|---|
-| Foundation (identity keys) | in progress |
-| 1:1 messaging (X3DH, Double Ratchet) | pending |
-| SQLCipher default stores | pending |
-| Groups, Sealed Sender, Provisioning | pending |
-| Facade API, config plugin, example app, release | pending |
+| Foundation (identity keys) | ✅ shipped |
+| 1:1 messaging (X3DH, Double Ratchet, PreKey bundles) | pending |
+| Default SQLCipher-backed stores | pending |
+| Groups (Sender Keys), Sealed Sender, Provisioning | pending |
+| Ergonomic `SignalClient` facade, full example playground, npm publishing | pending |
+
+## How it works under the hood
+
+`expo-libsignal` is a thin Expo Module that bridges libsignal's native types (`IdentityKeyPair`, eventually `SessionRecord`, `PreKeyBundle`, etc.) to JavaScript as Expo `SharedObject` instances. Each native object is GC-managed via the JSI SharedObject pattern — when the JS reference is collected, the underlying Rust handle is released by a finalizer.
+
+The library does not bundle a pre-built Rust FFI — it relies on Signal's official prebuilt artifacts:
+- **iOS:** `LibSignalClient` CocoaPod 0.94.4, which has a script phase that downloads `libsignal-client-ios-build-v0.94.4.tar.gz` from Signal's GitHub release.
+- **Android:** `org.signal:libsignal-android:0.94.4` from Signal's own Maven repo.
+
+Both are pinned by exact version. To bump libsignal, update `LIBSIGNAL_VERSION` and `LIBSIGNAL_IOS_FFI_SHA256` in `plugin/src/index.ts` and the version pin in `ios/ExpoLibsignal.podspec` / `android/build.gradle`.
+
+## Contributing
+
+Contributions are welcome. Please open an issue first for anything beyond a small fix — the API is still in flux and we want to coordinate on direction.
+
+## License
+
+AGPL-3.0. See [LICENSE](./LICENSE).
+
+## Security
+
+See [SECURITY.md](./SECURITY.md).
