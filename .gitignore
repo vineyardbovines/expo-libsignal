@@ -4,15 +4,13 @@ node_modules/
 *.log
 
 # iOS
-ios/Pods/
-ios/build/
-ios/*.xcworkspace
-ios/.xcode.env.local
+Pods/
+*.xcworkspace
+.xcode.env.local
 
 # Android
-android/.gradle/
-android/build/
-android/local.properties
+.gradle/
+local.properties
 
 # TypeScript
 *.tsbuildinfo
