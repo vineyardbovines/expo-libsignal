@@ -326,5 +326,13 @@ public final class ExpoLibsignalModule: Module {
         throw Exception(name: "LibsignalError", description: "\(error)")
       }
     }
+
+    AsyncFunction("encryptOp") { (args: EncryptArgs) -> EncryptResult in
+      do {
+        return try runEncryptOp(args)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
   }
 }

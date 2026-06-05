@@ -53,6 +53,85 @@ func identityChangeString(
   return existing == nil ? "newOrUnchanged" : "replacedExisting"
 }
 
+// MARK: - encryptOp
+
+struct EncryptArgs: Record {
+  @Field var plaintext: Data = Data()
+  @Field var remoteAddress: ProtocolAddressRef? = nil
+  @Field var localAddress: ProtocolAddressRef? = nil
+  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = nil
+  @Field var ourRegistrationId: UInt32 = 0
+  @Field var existingSession: SessionRecordRef? = nil
+  @Field var remoteIdentity: PublicIdentityKeyRef? = nil
+  @Field var nowMs: Double = 0
+}
+
+struct EncryptResult: Record {
+  @Field var messageType: String = ""
+  @Field var preKeySignalMessage: PreKeySignalMessageRef? = nil
+  @Field var signalMessage: SignalMessageRef? = nil
+  @Field var newSession: SessionRecordRef? = nil
+  @Field var identityChange: String? = nil
+}
+
+func runEncryptOp(_ args: EncryptArgs) throws -> EncryptResult {
+  guard let remoteAddressRef = args.remoteAddress else {
+    throw Exception(name: "LibsignalError", description: "remoteAddress is required")
+  }
+  guard let localAddressRef = args.localAddress else {
+    throw Exception(name: "LibsignalError", description: "localAddress is required")
+  }
+  guard let identityKeyPairRef = args.ourIdentityKeyPair else {
+    throw Exception(name: "LibsignalError", description: "ourIdentityKeyPair is required")
+  }
+  guard let existingSessionRef = args.existingSession else {
+    throw Exception(name: "LibsignalError", description: "existingSession is required")
+  }
+
+  let ctx = NullContext()
+  let store = try seedStore(
+    identityKeyPair: identityKeyPairRef,
+    registrationId: args.ourRegistrationId,
+    remoteAddress: remoteAddressRef,
+    existingSession: existingSessionRef,
+    existingRemoteIdentity: args.remoteIdentity
+  )
+
+  let ciphertext = try signalEncrypt(
+    message: args.plaintext,
+    for: remoteAddressRef.address,
+    localAddress: localAddressRef.address,
+    sessionStore: store,
+    identityStore: store,
+    now: Date(timeIntervalSince1970: args.nowMs / 1000.0),
+    context: ctx
+  )
+
+  guard let newSession = try store.loadSession(for: remoteAddressRef.address, context: ctx) else {
+    throw Exception(name: "LibsignalError", description: "encryptOp produced no session")
+  }
+
+  var result = EncryptResult()
+  result.newSession = SessionRecordRef(record: newSession)
+  result.identityChange = "newOrUnchanged"
+
+  switch ciphertext.messageType {
+  case .preKey:
+    let bytes = ciphertext.serialize()
+    let preKeyMsg = try PreKeySignalMessage(bytes: bytes)
+    result.messageType = "preKeySignal"
+    result.preKeySignalMessage = PreKeySignalMessageRef(message: preKeyMsg)
+  case .whisper:
+    let bytes = ciphertext.serialize()
+    let signalMsg = try SignalMessage(bytes: bytes)
+    result.messageType = "signal"
+    result.signalMessage = SignalMessageRef(message: signalMsg)
+  default:
+    throw Exception(name: "LibsignalError", description: "encryptOp produced unexpected ciphertext type \(ciphertext.messageType.rawValue)")
+  }
+  return result
+}
+
 // MARK: - processPreKeyBundleOp
 
 func runProcessPreKeyBundleOp(_ args: ProcessPreKeyBundleArgs) throws -> ProcessPreKeyBundleResult {
