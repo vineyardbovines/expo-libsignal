@@ -199,3 +199,47 @@ internal fun runDecryptPreKeySignalOp(args: DecryptPreKeySignalArgs): DecryptPre
   result.kyberPreKeyId = kyberPreKey.record.id
   return result
 }
+
+class DecryptSignalArgs : Record {
+  @Field var message: SignalMessageRef? = null
+  @Field var remoteAddress: ProtocolAddressRef? = null
+  @Field var localAddress: ProtocolAddressRef? = null
+  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = null
+  @Field var ourRegistrationId: Int = 0
+  @Field var existingSession: SessionRecordRef? = null
+  @Field var remoteIdentity: PublicIdentityKeyRef? = null
+}
+
+class DecryptSignalResult : Record {
+  @Field var plaintext: ByteArray = ByteArray(0)
+  @Field var newSession: SessionRecordRef? = null
+  @Field var identityChange: String? = null
+}
+
+internal fun runDecryptSignalOp(args: DecryptSignalArgs): DecryptSignalResult {
+  val msg = args.message ?: throw IllegalArgumentException("message required")
+  val remote = args.remoteAddress ?: throw IllegalArgumentException("remoteAddress required")
+  val local = args.localAddress ?: throw IllegalArgumentException("localAddress required")
+  val identity = args.ourIdentityKeyPair ?: throw IllegalArgumentException("ourIdentityKeyPair required")
+  val session = args.existingSession ?: throw IllegalArgumentException("existingSession required")
+
+  val store = seedStore(
+    identity = identity,
+    registrationId = args.ourRegistrationId,
+    remoteAddress = remote,
+    existingSession = session,
+    existingRemoteIdentity = args.remoteIdentity,
+  )
+
+  val cipher = SessionCipher(store, store, store, store, store, remote.address, local.address)
+  val plaintext = cipher.decrypt(msg.message)
+
+  val newSession = store.loadSession(remote.address)
+    ?: throw IllegalStateException("decryptSignalOp produced no session")
+
+  val result = DecryptSignalResult()
+  result.plaintext = plaintext
+  result.newSession = SessionRecordRef(newSession)
+  result.identityChange = identityChangeString(store, remote, args.remoteIdentity)
+  return result
+}
