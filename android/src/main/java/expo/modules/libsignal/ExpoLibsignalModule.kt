@@ -328,5 +328,13 @@ class ExpoLibsignalModule : Module() {
       }
       Function("signedPreKeyId") { ref: PreKeySignalMessageRef -> ref.message.signedPreKeyId }
     }
+
+    AsyncFunction("processPreKeyBundleOp") Coroutine { args: ProcessPreKeyBundleArgs ->
+      try {
+        runProcessPreKeyBundleOp(args)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
   }
 }
