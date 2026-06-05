@@ -7,4 +7,13 @@ export { ProtocolAddress } from './core/ProtocolAddress'
 export { PublicKey } from './core/PublicKey'
 export { SessionRecord } from './core/SessionRecord'
 export { SignedPreKeyRecord } from './core/SignedPreKeyRecord'
+export type {
+  Direction,
+  IdentityChange,
+  IdentityKeyStore,
+  KyberPreKeyStore,
+  PreKeyStore,
+  SessionStore,
+  SignedPreKeyStore,
+} from './core/stores'
 export * from './errors'
