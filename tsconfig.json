@@ -1,28 +1,19 @@
 {
+  "extends": "expo-module-scripts/tsconfig.base",
   "compilerOptions": {
-    "lib": ["dom", "DOM.Iterable", "esnext"],
-    "types": ["jest"],
-    "typeRoots": ["./ts-declarations", "./node_modules/@types"],
-    "jsx": "react-native",
-    "target": "esnext",
-    "moduleResolution": "bundler",
-    "module": "esnext",
-    "moduleDetection": "force",
-    "esModuleInterop": true,
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
-    "inlineSources": true,
-    "skipLibCheck": true,
+    "outDir": "./build",
     "strict": true,
-    "noFallthroughCasesInSwitch": true,
-    "noPropertyAccessFromIndexSignature": false,
-    "noImplicitReturns": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": false,
-    "rootDir": "./src",
-    "outDir": "./build"
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "exactOptionalPropertyTypes": true,
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM"],
+    "target": "ES2022",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "declaration": true,
+    "declarationMap": true
   },
-  "include": ["./src"],
-  "exclude": ["**/__mocks__/*", "**/__tests__/*"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules", "build", "example", "**/*.test.ts"]
 }
