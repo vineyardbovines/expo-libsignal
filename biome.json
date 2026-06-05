@@ -13,7 +13,8 @@
       "!example",
       "!ios/Pods",
       "!android/.gradle",
-      "!android/build"
+      "!android/build",
+      "!.eslintrc.js"
     ]
   },
   "linter": {
