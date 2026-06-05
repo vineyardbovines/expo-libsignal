@@ -4,6 +4,7 @@ import {
   type ConfigPlugin,
   type ExportedConfigWithProps,
   withDangerousMod,
+  withProjectBuildGradle,
 } from 'expo/config-plugins'
 
 /**
@@ -107,6 +108,38 @@ const withLibsignalPodfile: ConfigPlugin = (config) =>
     },
   ])
 
-const withExpoLibsignal: ConfigPlugin = (config) => withLibsignalPodfile(config)
+/**
+ * Signal hosts libsignal-android on its own Maven repo, not Maven Central.
+ * Declaring it in this library's android/build.gradle isn't enough — Gradle
+ * only resolves transitive deps against repos configured in the CONSUMER's
+ * project. Inject the URL into the consumer's root build.gradle's
+ * `allprojects { repositories { ... } }` block.
+ */
+const GRADLE_MARKER = '// expo-libsignal: Signal Maven repo'
+const signalMavenSnippet = `    ${GRADLE_MARKER}
+    maven { url 'https://build-artifacts.signal.org/libraries/maven/' }`
+
+function injectSignalMaven(contents: string): string {
+  if (contents.includes(GRADLE_MARKER)) return contents
+  // Find the `allprojects { repositories { ... } }` block and insert just
+  // inside its repositories opener. Gradle DSL is permissive about ordering
+  // — we put ours first so it gets searched first.
+  const re = /(allprojects\s*\{[\s\S]*?repositories\s*\{)/
+  return contents.replace(re, `$1\n${signalMavenSnippet}`)
+}
+
+const withLibsignalGradle: ConfigPlugin = (config) =>
+  withProjectBuildGradle(config, (cfg) => {
+    if (cfg.modResults.language === 'groovy') {
+      cfg.modResults.contents = injectSignalMaven(cfg.modResults.contents)
+    }
+    return cfg
+  })
+
+const withExpoLibsignal: ConfigPlugin = (config) => {
+  config = withLibsignalPodfile(config)
+  config = withLibsignalGradle(config)
+  return config
+}
 
 export default withExpoLibsignal
