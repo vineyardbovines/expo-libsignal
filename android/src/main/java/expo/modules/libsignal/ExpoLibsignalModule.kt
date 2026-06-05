@@ -26,7 +26,19 @@ class ExpoLibsignalModule : Module() {
 
     // Instance methods. The first parameter (typed as the SharedObject) is
     // auto-bound to `this` on the JS side.
+    //
+    // Constructor is required by the Kotlin Expo Modules API even though we
+    // never expose these for direct construction from JS. Throwing in the
+    // body ensures that if a consumer somehow calls `new IdentityKeyPairRef()`,
+    // they get a clear error instead of a half-initialized object.
     Class(IdentityKeyPairRef::class) {
+      Constructor {
+        throw IllegalStateException(
+          "IdentityKeyPairRef is not directly constructable from JS. " +
+            "Use IdentityKeyPair.generate() or IdentityKeyPair.deserialize().",
+        )
+      }
+
       Function("serialize") { ref: IdentityKeyPairRef ->
         ref.keyPair.serialize()
       }
@@ -41,12 +53,24 @@ class ExpoLibsignalModule : Module() {
     }
 
     Class(PublicIdentityKeyRef::class) {
+      Constructor {
+        throw IllegalStateException(
+          "PublicIdentityKeyRef is not directly constructable from JS.",
+        )
+      }
+
       Function("serialize") { ref: PublicIdentityKeyRef ->
         ref.key.serialize()
       }
     }
 
     Class(PrivateKeyRef::class) {
+      Constructor {
+        throw IllegalStateException(
+          "PrivateKeyRef is not directly constructable from JS.",
+        )
+      }
+
       Function("serialize") { ref: PrivateKeyRef ->
         ref.key.serialize()
       }
