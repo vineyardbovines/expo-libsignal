@@ -4,6 +4,10 @@ import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import java.time.Instant
 import org.signal.libsignal.protocol.SessionBuilder
+import org.signal.libsignal.protocol.SessionCipher
+import org.signal.libsignal.protocol.message.CiphertextMessage
+import org.signal.libsignal.protocol.message.PreKeySignalMessage
+import org.signal.libsignal.protocol.message.SignalMessage
 import org.signal.libsignal.protocol.state.impl.InMemorySignalProtocolStore
 
 class ProcessPreKeyBundleArgs : Record {
@@ -77,5 +81,62 @@ internal fun runProcessPreKeyBundleOp(args: ProcessPreKeyBundleArgs): ProcessPre
   result.newSession = SessionRecordRef(newSession)
   result.identityChange = identityChangeString(store, remote, args.existingRemoteIdentity)
   result.trustedRemoteIdentity = PublicIdentityKeyRef(trustedRemote)
+  return result
+}
+
+class EncryptArgs : Record {
+  @Field var plaintext: ByteArray = ByteArray(0)
+  @Field var remoteAddress: ProtocolAddressRef? = null
+  @Field var localAddress: ProtocolAddressRef? = null
+  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = null
+  @Field var ourRegistrationId: Int = 0
+  @Field var existingSession: SessionRecordRef? = null
+  @Field var remoteIdentity: PublicIdentityKeyRef? = null
+  @Field var nowMs: Double = 0.0
+}
+
+class EncryptResult : Record {
+  @Field var messageType: String = ""
+  @Field var preKeySignalMessage: PreKeySignalMessageRef? = null
+  @Field var signalMessage: SignalMessageRef? = null
+  @Field var newSession: SessionRecordRef? = null
+  @Field var identityChange: String? = null
+}
+
+internal fun runEncryptOp(args: EncryptArgs): EncryptResult {
+  val remote = args.remoteAddress ?: throw IllegalArgumentException("remoteAddress required")
+  val local = args.localAddress ?: throw IllegalArgumentException("localAddress required")
+  val identity = args.ourIdentityKeyPair ?: throw IllegalArgumentException("ourIdentityKeyPair required")
+  val session = args.existingSession ?: throw IllegalArgumentException("existingSession required")
+
+  val store = seedStore(
+    identity = identity,
+    registrationId = args.ourRegistrationId,
+    remoteAddress = remote,
+    existingSession = session,
+    existingRemoteIdentity = args.remoteIdentity,
+  )
+
+  val cipher = SessionCipher(store, store, store, store, store, remote.address, local.address)
+  val ciphertext = cipher.encrypt(args.plaintext, Instant.ofEpochMilli(args.nowMs.toLong()))
+
+  val newSession = store.loadSession(remote.address)
+    ?: throw IllegalStateException("encryptOp produced no session")
+
+  val result = EncryptResult()
+  result.newSession = SessionRecordRef(newSession)
+  result.identityChange = if (args.remoteIdentity == null) null else "newOrUnchanged"
+
+  when (ciphertext.type) {
+    CiphertextMessage.PREKEY_TYPE -> {
+      result.messageType = "preKeySignal"
+      result.preKeySignalMessage = PreKeySignalMessageRef(PreKeySignalMessage(ciphertext.serialize()))
+    }
+    CiphertextMessage.WHISPER_TYPE -> {
+      result.messageType = "signal"
+      result.signalMessage = SignalMessageRef(SignalMessage(ciphertext.serialize()))
+    }
+    else -> throw IllegalStateException("encryptOp produced unexpected ciphertext type ${ciphertext.type}")
+  }
   return result
 }

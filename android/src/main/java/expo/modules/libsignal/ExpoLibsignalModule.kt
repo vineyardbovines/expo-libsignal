@@ -336,5 +336,13 @@ class ExpoLibsignalModule : Module() {
         throw RuntimeException(mapSignalError(e).message)
       }
     }
+
+    AsyncFunction("encryptOp") Coroutine { args: EncryptArgs ->
+      try {
+        runEncryptOp(args)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
   }
 }
