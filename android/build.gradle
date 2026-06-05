@@ -6,13 +6,29 @@ plugins {
 group = 'expo.modules.libsignal'
 version = '0.1.0'
 
+repositories {
+  mavenCentral()
+  google()
+  maven {
+    name = "SignalBuildArtifacts"
+    url = uri("https://build-artifacts.signal.org/libraries/maven/")
+  }
+}
+
 android {
   namespace "expo.modules.libsignal"
   defaultConfig {
+    minSdkVersion 24
     versionCode 1
     versionName "0.1.0"
+    consumerProguardFiles 'proguard-rules.pro'
   }
   lintOptions {
     abortOnError false
   }
+}
+
+dependencies {
+  implementation 'org.signal:libsignal-android:0.94.4'
+  implementation 'org.signal:libsignal-client:0.94.4'
 }
