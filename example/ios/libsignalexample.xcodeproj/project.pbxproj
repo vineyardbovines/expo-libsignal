@@ -10,26 +10,26 @@
 		13B07FBF1A68108700A75B9A /* Images.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 13B07FB51A68108700A75B9A /* Images.xcassets */; };
 		3E461D99554A48A4959DE609 /* SplashScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */; };
 		4DB3555FBFD75183FB6252F3 /* ExpoModulesProvider.swift in Sources */ = {isa = PBXBuildFile; fileRef = 523280C9FDC7BB8D21B31856 /* ExpoModulesProvider.swift */; };
-		9A7880422EE7BAB83454E41A /* libPods-tmpexpolibsignalexample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 622054971F514F1AE0DD0D23 /* libPods-tmpexpolibsignalexample.a */; };
+		9A7880422EE7BAB83454E41A /* libPods-libsignalexample.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 622054971F514F1AE0DD0D23 /* libPods-libsignalexample.a */; };
 		BB2F792D24A3F905000567C9 /* Expo.plist in Resources */ = {isa = PBXBuildFile; fileRef = BB2F792C24A3F905000567C9 /* Expo.plist */; };
 		D39052952593DC7677B6DE27 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 5C16DCE6875F128681B24DAB /* PrivacyInfo.xcprivacy */; };
 		F11748422D0307B40044C1D9 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = F11748412D0307B40044C1D9 /* AppDelegate.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		0F48D7D55BFFF3D4EAD0DCA0 /* Pods-tmpexpolibsignalexample.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-tmpexpolibsignalexample.debug.xcconfig"; path = "Target Support Files/Pods-tmpexpolibsignalexample/Pods-tmpexpolibsignalexample.debug.xcconfig"; sourceTree = "<group>"; };
-		13B07F961A680F5B00A75B9A /* tmpexpolibsignalexample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = tmpexpolibsignalexample.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = tmpexpolibsignalexample/Images.xcassets; sourceTree = "<group>"; };
-		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = tmpexpolibsignalexample/Info.plist; sourceTree = "<group>"; };
-		523280C9FDC7BB8D21B31856 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-tmpexpolibsignalexample/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
-		5C16DCE6875F128681B24DAB /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = tmpexpolibsignalexample/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
-		622054971F514F1AE0DD0D23 /* libPods-tmpexpolibsignalexample.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-tmpexpolibsignalexample.a"; sourceTree = BUILT_PRODUCTS_DIR; };
-		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = tmpexpolibsignalexample/SplashScreen.storyboard; sourceTree = "<group>"; };
-		BA293BF5FBE95385D6F30C74 /* Pods-tmpexpolibsignalexample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-tmpexpolibsignalexample.release.xcconfig"; path = "Target Support Files/Pods-tmpexpolibsignalexample/Pods-tmpexpolibsignalexample.release.xcconfig"; sourceTree = "<group>"; };
+		0F48D7D55BFFF3D4EAD0DCA0 /* Pods-libsignalexample.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-libsignalexample.debug.xcconfig"; path = "Target Support Files/Pods-libsignalexample/Pods-libsignalexample.debug.xcconfig"; sourceTree = "<group>"; };
+		13B07F961A680F5B00A75B9A /* libsignalexample.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = libsignalexample.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		13B07FB51A68108700A75B9A /* Images.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; name = Images.xcassets; path = libsignalexample/Images.xcassets; sourceTree = "<group>"; };
+		13B07FB61A68108700A75B9A /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = libsignalexample/Info.plist; sourceTree = "<group>"; };
+		523280C9FDC7BB8D21B31856 /* ExpoModulesProvider.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; name = ExpoModulesProvider.swift; path = "Pods/Target Support Files/Pods-libsignalexample/ExpoModulesProvider.swift"; sourceTree = "<group>"; };
+		5C16DCE6875F128681B24DAB /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; includeInIndex = 1; name = PrivacyInfo.xcprivacy; path = libsignalexample/PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		622054971F514F1AE0DD0D23 /* libPods-libsignalexample.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = "libPods-libsignalexample.a"; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.storyboard; name = SplashScreen.storyboard; path = libsignalexample/SplashScreen.storyboard; sourceTree = "<group>"; };
+		BA293BF5FBE95385D6F30C74 /* Pods-libsignalexample.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-libsignalexample.release.xcconfig"; path = "Target Support Files/Pods-libsignalexample/Pods-libsignalexample.release.xcconfig"; sourceTree = "<group>"; };
 		BB2F792C24A3F905000567C9 /* Expo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Expo.plist; sourceTree = "<group>"; };
 		ED297162215061F000B7C4FE /* JavaScriptCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = JavaScriptCore.framework; path = System/Library/Frameworks/JavaScriptCore.framework; sourceTree = SDKROOT; };
-		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = tmpexpolibsignalexample/AppDelegate.swift; sourceTree = "<group>"; };
-		F11748442D0722820044C1D9 /* tmpexpolibsignalexample-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "tmpexpolibsignalexample-Bridging-Header.h"; path = "tmpexpolibsignalexample/tmpexpolibsignalexample-Bridging-Header.h"; sourceTree = "<group>"; };
+		F11748412D0307B40044C1D9 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; name = AppDelegate.swift; path = libsignalexample/AppDelegate.swift; sourceTree = "<group>"; };
+		F11748442D0722820044C1D9 /* libsignalexample-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "libsignalexample-Bridging-Header.h"; path = "libsignalexample/libsignalexample-Bridging-Header.h"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -37,32 +37,32 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9A7880422EE7BAB83454E41A /* libPods-tmpexpolibsignalexample.a in Frameworks */,
+				9A7880422EE7BAB83454E41A /* libPods-libsignalexample.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		13B07FAE1A68108700A75B9A /* tmpexpolibsignalexample */ = {
+		13B07FAE1A68108700A75B9A /* libsignalexample */ = {
 			isa = PBXGroup;
 			children = (
 				F11748412D0307B40044C1D9 /* AppDelegate.swift */,
-				F11748442D0722820044C1D9 /* tmpexpolibsignalexample-Bridging-Header.h */,
+				F11748442D0722820044C1D9 /* libsignalexample-Bridging-Header.h */,
 				BB2F792B24A3F905000567C9 /* Supporting */,
 				13B07FB51A68108700A75B9A /* Images.xcassets */,
 				13B07FB61A68108700A75B9A /* Info.plist */,
 				AA286B85B6C04FC6940260E9 /* SplashScreen.storyboard */,
 				5C16DCE6875F128681B24DAB /* PrivacyInfo.xcprivacy */,
 			);
-			name = tmpexpolibsignalexample;
+			name = libsignalexample;
 			sourceTree = "<group>";
 		};
 		206D51F1B0135C83FC8192C9 /* Pods */ = {
 			isa = PBXGroup;
 			children = (
-				0F48D7D55BFFF3D4EAD0DCA0 /* Pods-tmpexpolibsignalexample.debug.xcconfig */,
-				BA293BF5FBE95385D6F30C74 /* Pods-tmpexpolibsignalexample.release.xcconfig */,
+				0F48D7D55BFFF3D4EAD0DCA0 /* Pods-libsignalexample.debug.xcconfig */,
+				BA293BF5FBE95385D6F30C74 /* Pods-libsignalexample.release.xcconfig */,
 			);
 			name = Pods;
 			path = Pods;
@@ -72,7 +72,7 @@
 			isa = PBXGroup;
 			children = (
 				ED297162215061F000B7C4FE /* JavaScriptCore.framework */,
-				622054971F514F1AE0DD0D23 /* libPods-tmpexpolibsignalexample.a */,
+				622054971F514F1AE0DD0D23 /* libPods-libsignalexample.a */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -87,7 +87,7 @@
 		83CBB9F61A601CBA00E9B192 = {
 			isa = PBXGroup;
 			children = (
-				13B07FAE1A68108700A75B9A /* tmpexpolibsignalexample */,
+				13B07FAE1A68108700A75B9A /* libsignalexample */,
 				832341AE1AAA6A7D00B99B32 /* Libraries */,
 				83CBBA001A601CBA00E9B192 /* Products */,
 				2D16E6871FA4F8E400B85C8A /* Frameworks */,
@@ -102,7 +102,7 @@
 		83CBBA001A601CBA00E9B192 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				13B07F961A680F5B00A75B9A /* tmpexpolibsignalexample.app */,
+				13B07F961A680F5B00A75B9A /* libsignalexample.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -113,31 +113,31 @@
 				BB2F792C24A3F905000567C9 /* Expo.plist */,
 			);
 			name = Supporting;
-			path = tmpexpolibsignalexample/Supporting;
+			path = libsignalexample/Supporting;
 			sourceTree = "<group>";
 		};
 		EF76FAFEB22359D464FFB3E8 /* ExpoModulesProviders */ = {
 			isa = PBXGroup;
 			children = (
-				F9ED5F5B045EB0D5135D3560 /* tmpexpolibsignalexample */,
+				F9ED5F5B045EB0D5135D3560 /* libsignalexample */,
 			);
 			name = ExpoModulesProviders;
 			sourceTree = "<group>";
 		};
-		F9ED5F5B045EB0D5135D3560 /* tmpexpolibsignalexample */ = {
+		F9ED5F5B045EB0D5135D3560 /* libsignalexample */ = {
 			isa = PBXGroup;
 			children = (
 				523280C9FDC7BB8D21B31856 /* ExpoModulesProvider.swift */,
 			);
-			name = tmpexpolibsignalexample;
+			name = libsignalexample;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		13B07F861A680F5B00A75B9A /* tmpexpolibsignalexample */ = {
+		13B07F861A680F5B00A75B9A /* libsignalexample */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "tmpexpolibsignalexample" */;
+			buildConfigurationList = 13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "libsignalexample" */;
 			buildPhases = (
 				08A4A3CD28434E44B6B9DE2E /* [CP] Check Pods Manifest.lock */,
 				9311CC91B5743E528431BA63 /* [Expo] Configure project */,
@@ -152,9 +152,9 @@
 			);
 			dependencies = (
 			);
-			name = tmpexpolibsignalexample;
-			productName = tmpexpolibsignalexample;
-			productReference = 13B07F961A680F5B00A75B9A /* tmpexpolibsignalexample.app */;
+			name = libsignalexample;
+			productName = libsignalexample;
+			productReference = 13B07F961A680F5B00A75B9A /* libsignalexample.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -170,7 +170,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "tmpexpolibsignalexample" */;
+			buildConfigurationList = 83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "libsignalexample" */;
 			compatibilityVersion = "Xcode 3.2";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -183,7 +183,7 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				13B07F861A680F5B00A75B9A /* tmpexpolibsignalexample */,
+				13B07F861A680F5B00A75B9A /* libsignalexample */,
 			);
 		};
 /* End PBXProject section */
@@ -235,7 +235,7 @@
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(DERIVED_FILE_DIR)/Pods-tmpexpolibsignalexample-checkManifestLockResult.txt",
+				"$(DERIVED_FILE_DIR)/Pods-libsignalexample-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -248,7 +248,7 @@
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-tmpexpolibsignalexample/Pods-tmpexpolibsignalexample-resources.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-libsignalexample/Pods-libsignalexample-resources.sh",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/EXConstants.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/EXConstants/ExpoConstants_privacy.bundle",
 				"${PODS_CONFIGURATION_BUILD_DIR}/ExpoFileSystem/ExpoFileSystem_privacy.bundle",
@@ -265,7 +265,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-tmpexpolibsignalexample/Pods-tmpexpolibsignalexample-resources.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-libsignalexample/Pods-libsignalexample-resources.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 		9311CC91B5743E528431BA63 /* [Expo] Configure project */ = {
@@ -279,18 +279,18 @@
 			inputPaths = (
 				"$(SRCROOT)/.xcode.env",
 				"$(SRCROOT)/.xcode.env.local",
-				"$(SRCROOT)/tmpexpolibsignalexample/tmpexpolibsignalexample.entitlements",
-				"$(SRCROOT)/Pods/Target Support Files/Pods-tmpexpolibsignalexample/expo-configure-project.sh",
+				"$(SRCROOT)/libsignalexample/libsignalexample.entitlements",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-libsignalexample/expo-configure-project.sh",
 			);
 			name = "[Expo] Configure project";
 			outputFileListPaths = (
 			);
 			outputPaths = (
-				"$(SRCROOT)/Pods/Target Support Files/Pods-tmpexpolibsignalexample/ExpoModulesProvider.swift",
+				"$(SRCROOT)/Pods/Target Support Files/Pods-libsignalexample/ExpoModulesProvider.swift",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-tmpexpolibsignalexample/expo-configure-project.sh\"\n";
+			shellScript = "# This script configures Expo modules and generates the modules provider file.\nbash -l -c \"./Pods/Target\\ Support\\ Files/Pods-libsignalexample/expo-configure-project.sh\"\n";
 		};
 		CEF0F0FF598C9794314D13A3 /* [CP] Embed Pods Frameworks */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -298,7 +298,7 @@
 			files = (
 			);
 			inputPaths = (
-				"${PODS_ROOT}/Target Support Files/Pods-tmpexpolibsignalexample/Pods-tmpexpolibsignalexample-frameworks.sh",
+				"${PODS_ROOT}/Target Support Files/Pods-libsignalexample/Pods-libsignalexample-frameworks.sh",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ExpoModulesJSI/ExpoModulesJSI.framework/ExpoModulesJSI",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/React-Core-prebuilt/React.framework/React",
 				"${PODS_XCFRAMEWORKS_BUILD_DIR}/ReactNativeDependencies/ReactNativeDependencies.framework/ReactNativeDependencies",
@@ -313,7 +313,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-tmpexpolibsignalexample/Pods-tmpexpolibsignalexample-frameworks.sh\"\n";
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-libsignalexample/Pods-libsignalexample-frameworks.sh\"\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */
@@ -333,18 +333,18 @@
 /* Begin XCBuildConfiguration section */
 		13B07F941A680F5B00A75B9A /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = 0F48D7D55BFFF3D4EAD0DCA0 /* Pods-tmpexpolibsignalexample.debug.xcconfig */;
+			baseConfigurationReference = 0F48D7D55BFFF3D4EAD0DCA0 /* Pods-libsignalexample.debug.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = tmpexpolibsignalexample/tmpexpolibsignalexample.entitlements;
+				CODE_SIGN_ENTITLEMENTS = libsignalexample/libsignalexample.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_BITCODE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"$(inherited)",
 					"FB_SONARKIT_ENABLED=1",
 				);
-				INFOPLIST_FILE = tmpexpolibsignalexample/Info.plist;
+				INFOPLIST_FILE = libsignalexample/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -358,9 +358,9 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_DEBUG";
-				PRODUCT_BUNDLE_IDENTIFIER = expo.modules.tmpexpolibsignal.example;
-				PRODUCT_NAME = tmpexpolibsignalexample;
-				SWIFT_OBJC_BRIDGING_HEADER = "tmpexpolibsignalexample/tmpexpolibsignalexample-Bridging-Header.h";
+				PRODUCT_BUNDLE_IDENTIFIER = expo.modules.libsignal.example;
+				PRODUCT_NAME = libsignalexample;
+				SWIFT_OBJC_BRIDGING_HEADER = "libsignalexample/libsignalexample-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -370,13 +370,13 @@
 		};
 		13B07F951A680F5B00A75B9A /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = BA293BF5FBE95385D6F30C74 /* Pods-tmpexpolibsignalexample.release.xcconfig */;
+			baseConfigurationReference = BA293BF5FBE95385D6F30C74 /* Pods-libsignalexample.release.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CLANG_ENABLE_MODULES = YES;
-				CODE_SIGN_ENTITLEMENTS = tmpexpolibsignalexample/tmpexpolibsignalexample.entitlements;
+				CODE_SIGN_ENTITLEMENTS = libsignalexample/libsignalexample.entitlements;
 				CURRENT_PROJECT_VERSION = 1;
-				INFOPLIST_FILE = tmpexpolibsignalexample/Info.plist;
+				INFOPLIST_FILE = libsignalexample/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 16.4;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -390,9 +390,9 @@
 					"-lc++",
 				);
 				OTHER_SWIFT_FLAGS = "$(inherited) -D EXPO_CONFIGURATION_RELEASE";
-				PRODUCT_BUNDLE_IDENTIFIER = expo.modules.tmpexpolibsignal.example;
-				PRODUCT_NAME = tmpexpolibsignalexample;
-				SWIFT_OBJC_BRIDGING_HEADER = "tmpexpolibsignalexample/tmpexpolibsignalexample-Bridging-Header.h";
+				PRODUCT_BUNDLE_IDENTIFIER = expo.modules.libsignal.example;
+				PRODUCT_NAME = libsignalexample;
+				SWIFT_OBJC_BRIDGING_HEADER = "libsignalexample/libsignalexample-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				VERSIONING_SYSTEM = "apple-generic";
@@ -536,7 +536,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "tmpexpolibsignalexample" */ = {
+		13B07F931A680F5B00A75B9A /* Build configuration list for PBXNativeTarget "libsignalexample" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				13B07F941A680F5B00A75B9A /* Debug */,
@@ -545,7 +545,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "tmpexpolibsignalexample" */ = {
+		83CBB9FA1A601CBA00E9B192 /* Build configuration list for PBXProject "libsignalexample" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				83CBBA201A601CBA00E9B192 /* Debug */,

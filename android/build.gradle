@@ -3,11 +3,11 @@ plugins {
   id 'expo-module-gradle-plugin'
 }
 
-group = 'expo.modules.tmpexpolibsignal'
+group = 'expo.modules.libsignal'
 version = '0.1.0'
 
 android {
-  namespace "expo.modules.tmpexpolibsignal"
+  namespace "expo.modules.libsignal"
   defaultConfig {
     versionCode 1
     versionName "0.1.0"

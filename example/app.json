@@ -1,14 +1,14 @@
 {
   "expo": {
-    "name": "tmp-expo-libsignal-example",
-    "slug": "tmp-expo-libsignal-example",
+    "name": "expo-libsignal-example",
+    "slug": "expo-libsignal-example",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "expo.modules.tmpexpolibsignal.example"
+      "bundleIdentifier": "expo.modules.libsignal.example"
     },
     "android": {
       "adaptiveIcon": {
@@ -18,7 +18,7 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "expo.modules.tmpexpolibsignal.example"
+      "package": "expo.modules.libsignal.example"
     },
     "web": {
       "favicon": "./assets/favicon.png"

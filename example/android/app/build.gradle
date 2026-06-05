@@ -87,9 +87,9 @@ android {
     buildToolsVersion rootProject.ext.buildToolsVersion
     compileSdk rootProject.ext.compileSdkVersion
 
-    namespace 'expo.modules.tmpexpolibsignal.example'
+    namespace 'expo.modules.libsignal.example'
     defaultConfig {
-        applicationId 'expo.modules.tmpexpolibsignal.example'
+        applicationId 'expo.modules.libsignal.example'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1

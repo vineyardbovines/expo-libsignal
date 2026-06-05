@@ -1,9 +1,9 @@
 {
   "platforms": ["apple", "android", "web"],
   "apple": {
-    "modules": ["TmpExpoLibsignalModule"]
+    "modules": ["ExpoLibsignalModule"]
   },
   "android": {
-    "modules": ["expo.modules.tmpexpolibsignal.TmpExpoLibsignalModule"]
+    "modules": ["expo.modules.libsignal.ExpoLibsignalModule"]
   }
 }

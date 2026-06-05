@@ -1,4 +1,4 @@
-package expo.modules.tmpexpolibsignal.example
+package expo.modules.libsignal.example
 
 import android.os.Build
 import android.os.Bundle

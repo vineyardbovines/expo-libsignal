@@ -31,7 +31,7 @@ extensions.configure(com.facebook.react.ReactSettingsExtension) { ex ->
 }
 expoAutolinking.useExpoModules()
 
-rootProject.name = 'tmp-expo-libsignal-example'
+rootProject.name = 'expo-libsignal-example'
 
 expoAutolinking.useExpoVersionCatalog()
 

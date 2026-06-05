@@ -1,7 +1,7 @@
 import ExpoModulesCore
 
-public class TmpExpoLibsignalModule: Module {
+public class ExpoLibsignalModule: Module {
   public func definition() -> ModuleDefinition {
-    Name("TmpExpoLibsignal")
+    Name("ExpoLibsignal")
   }
 }

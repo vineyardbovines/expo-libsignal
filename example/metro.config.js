@@ -20,7 +20,7 @@ config.resolver.nodeModulesPaths = [
 ];
 
 config.resolver.extraNodeModules = {
-  'tmp-expo-libsignal': '..',
+  'expo-libsignal': '..',
 };
 
 config.watchFolders = [path.resolve(__dirname, '..')];

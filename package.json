@@ -1,55 +1,64 @@
 {
-  "name": "tmp-expo-libsignal",
-  "version": "0.1.0",
-  "description": "Expo Module wrapping signalapp/libsignal",
+  "name": "expo-libsignal",
+  "version": "0.0.1",
+  "description": "Expo Module wrapping signalapp/libsignal — Signal Protocol cryptography for React Native.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
   "scripts": {
-    "build": "node internal/module_scripts/build.js",
-    "clean": "node internal/module_scripts/clean.js",
-    "lint": "eslint src/",
-    "test": "node internal/module_scripts/test.js",
-    "prepare": "node internal/module_scripts/prepare.js",
-    "open:ios": "node internal/module_scripts/open-ios.js",
-    "open:android": "node internal/module_scripts/open-android.js"
+    "build": "expo-module build",
+    "clean": "expo-module clean",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "test": "jest",
+    "typecheck": "tsc --noEmit",
+    "prepare": "expo-module prepare",
+    "prepublishOnly": "expo-module prepublishOnly",
+    "expo-module": "expo-module",
+    "open:ios": "open -a 'Xcode' example/ios",
+    "open:android": "open -a 'Android Studio' example/android"
   },
   "keywords": [
     "react-native",
     "expo",
-    "tmp-expo-libsignal",
-    "TmpExpoLibsignal"
+    "signal",
+    "libsignal",
+    "e2ee",
+    "cryptography"
   ],
-  "repository": "https://github.com/vineyardbovines/expo-libsignal",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vineyardbovines/expo-libsignal.git"
+  },
   "bugs": {
     "url": "https://github.com/vineyardbovines/expo-libsignal/issues"
   },
-  "author": "Spencer Pope <spencerfpope@gmail.com> (https://github.com/vineyardbovines)",
+  "author": "Spencer Pope <spencerfpope@gmail.com>",
   "license": "AGPL-3.0",
   "homepage": "https://github.com/vineyardbovines/expo-libsignal#readme",
-  "dependencies": {},
   "devDependencies": {
-    "@babel/core": "^7.26.0",
-    "@types/jest": "^29.2.1",
-    "@types/react": "~19.1.1",
-    "babel-preset-expo": "~55.0.8",
-    "eslint": "~9.39.4",
-    "eslint-config-universe": "^15.0.3",
-    "expo": "^56.0.7",
+    "@biomejs/biome": "^2.0.0",
+    "@types/jest": "^29.5.12",
+    "@types/react": "~19.2.2",
+    "expo-module-scripts": "^4.1.0",
+    "expo-modules-core": "~2.4.0",
     "jest": "^29.7.0",
-    "jest-expo": "~55.0.9",
-    "prettier": "^3.0.0",
-    "react-native": "0.82.1",
-    "typescript": "^5.9.2"
-  },
-  "jest": {
-    "preset": "jest-expo",
-    "roots": [
-      "<rootDir>/src"
-    ]
+    "jest-expo": "~55.0.0",
+    "ts-jest": "^29.2.5",
+    "typescript": "~6.0.3"
   },
   "peerDependencies": {
-    "expo": "*",
+    "expo": ">=55.0.0",
+    "expo-secure-store": "*",
     "react": "*",
     "react-native": "*"
-  }
+  },
+  "files": [
+    "build",
+    "ios",
+    "android",
+    "src",
+    "expo-module.config.json",
+    "LICENSE",
+    "README.md"
+  ]
 }

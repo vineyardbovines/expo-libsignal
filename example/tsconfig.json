@@ -3,8 +3,8 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "tmp-expo-libsignal": ["../src/index"],
-      "tmp-expo-libsignal/*": ["../src/*"]
+      "expo-libsignal": ["../src/index"],
+      "expo-libsignal/*": ["../src/*"]
     }
   }
 }

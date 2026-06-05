@@ -3,7 +3,7 @@
   "configVersion": 0,
   "workspaces": {
     "": {
-      "name": "tmp-expo-libsignal-example",
+      "name": "expo-libsignal-example",
       "dependencies": {
         "expo": "~56.0.8",
         "react": "19.2.3",

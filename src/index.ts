@@ -1,4 +1,4 @@
-// Reexport the native module. On web, it will be resolved to TmpExpoLibsignalModule.web.ts
-// and on native platforms to TmpExpoLibsignalModule.ts
-export { default } from './TmpExpoLibsignalModule';
-export * from './TmpExpoLibsignal.types';
+// Reexport the native module. On web, it will be resolved to ExpoLibsignalModule.web.ts
+// and on native platforms to ExpoLibsignalModule.ts
+export { default } from './ExpoLibsignalModule';
+export * from './ExpoLibsignal.types';

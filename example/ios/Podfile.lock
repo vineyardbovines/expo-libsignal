@@ -1857,7 +1857,7 @@ PODS:
     - React-utils (= 0.85.3)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.85.3)
-  - TmpExpoLibsignal (1.0.0):
+  - ExpoLibsignal (1.0.0):
     - ExpoModulesCore
   - Yoga (0.0.0)
 
@@ -1947,7 +1947,7 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios/ReactCodegen`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
-  - TmpExpoLibsignal (from `../../ios`)
+  - ExpoLibsignal (from `../../ios`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 EXTERNAL SOURCES:
@@ -2120,7 +2120,7 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   ReactNativeDependencies:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
-  TmpExpoLibsignal:
+  ExpoLibsignal:
     :path: "../../ios"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
@@ -2210,7 +2210,7 @@ SPEC CHECKSUMS:
   ReactCodegen: c8f81e6c6f762dcf442a6203a1fb58f7dafc8014
   ReactCommon: 7dfc3250793bf36cf221096ff59e1179e13eef7f
   ReactNativeDependencies: a4ff8c932d61ccdaa4c1a5ab8de20c06262d0863
-  TmpExpoLibsignal: f1b10af83f2d46773c42885af40c6380c79c30a8
+  ExpoLibsignal: f1b10af83f2d46773c42885af40c6380c79c30a8
   Yoga: 77dfa8673de2874e1855002ae59c68b8be9b007b
 
 PODFILE CHECKSUM: c8e42c894360fac5f0d5a8d11efedfd724526dce
