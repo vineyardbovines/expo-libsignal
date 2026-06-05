@@ -318,5 +318,13 @@ public final class ExpoLibsignalModule: Module {
         return ref.message.signedPreKeyId
       }
     }
+
+    AsyncFunction("processPreKeyBundleOp") { (args: ProcessPreKeyBundleArgs) -> ProcessPreKeyBundleResult in
+      do {
+        return try runProcessPreKeyBundleOp(args)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
   }
 }
