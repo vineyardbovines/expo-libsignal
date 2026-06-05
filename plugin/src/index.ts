@@ -3,6 +3,7 @@ import * as path from 'node:path'
 import {
   type ConfigPlugin,
   type ExportedConfigWithProps,
+  withAppBuildGradle,
   withDangerousMod,
   withProjectBuildGradle,
 } from 'expo/config-plugins'
@@ -136,9 +137,62 @@ const withLibsignalGradle: ConfigPlugin = (config) =>
     return cfg
   })
 
+/**
+ * libsignal-android uses Java 8+ APIs (java.util.function, java.time, etc.)
+ * that need core library desugaring to work on the minSdk we target (24).
+ * Without this the build fails at :app:checkDebugAarMetadata.
+ */
+const DESUGAR_MARKER = '// expo-libsignal: core library desugaring'
+const DESUGAR_LIB_VERSION = '2.0.4'
+
+const compileOptionsSnippet = `        ${DESUGAR_MARKER}
+        coreLibraryDesugaringEnabled true
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17`
+
+const desugarDependencySnippet = `${DESUGAR_MARKER}
+dependencies {
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs:${DESUGAR_LIB_VERSION}'
+}`
+
+function injectAppDesugaring(contents: string): string {
+  if (contents.includes(DESUGAR_MARKER)) return contents
+
+  // 1. Add `compileOptions { ... }` inside the top-level `android { ... }`.
+  //    If a compileOptions block already exists, append our settings inside it
+  //    rather than declaring a second one (which Gradle rejects).
+  const hasCompileOptions = /android\s*\{[\s\S]*?compileOptions\s*\{/.test(contents)
+  let next = contents
+  if (hasCompileOptions) {
+    next = next.replace(
+      /(compileOptions\s*\{)/,
+      `$1\n${compileOptionsSnippet}`,
+    )
+  } else {
+    next = next.replace(
+      /(android\s*\{)/,
+      `$1\n    compileOptions {\n${compileOptionsSnippet}\n    }\n`,
+    )
+  }
+
+  // 2. Append the desugaring dependency at the end of the file. Multiple
+  //    `dependencies { ... }` blocks are valid Gradle DSL and merge.
+  next = `${next.trimEnd()}\n\n${desugarDependencySnippet}\n`
+  return next
+}
+
+const withLibsignalAppGradle: ConfigPlugin = (config) =>
+  withAppBuildGradle(config, (cfg) => {
+    if (cfg.modResults.language === 'groovy') {
+      cfg.modResults.contents = injectAppDesugaring(cfg.modResults.contents)
+    }
+    return cfg
+  })
+
 const withExpoLibsignal: ConfigPlugin = (config) => {
   config = withLibsignalPodfile(config)
   config = withLibsignalGradle(config)
+  config = withLibsignalAppGradle(config)
   return config
 }
 
