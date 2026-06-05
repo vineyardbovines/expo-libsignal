@@ -1,4 +1,7 @@
 export { IdentityKey, IdentityKeyPair, PrivateKey } from './core/IdentityKeyPair'
+export { KyberPreKeyRecord } from './core/KyberPreKeyRecord'
+export { PreKeyRecord } from './core/PreKeyRecord'
 export { ProtocolAddress } from './core/ProtocolAddress'
 export { PublicKey } from './core/PublicKey'
+export { SignedPreKeyRecord } from './core/SignedPreKeyRecord'
 export * from './errors'
