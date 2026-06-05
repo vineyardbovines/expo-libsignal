@@ -12,9 +12,12 @@ import org.signal.libsignal.protocol.ecc.ECPublicKey
 import org.signal.libsignal.protocol.kem.KEMKeyPair
 import org.signal.libsignal.protocol.kem.KEMKeyType
 import org.signal.libsignal.protocol.kem.KEMPublicKey
+import org.signal.libsignal.protocol.message.PreKeySignalMessage
+import org.signal.libsignal.protocol.message.SignalMessage
 import org.signal.libsignal.protocol.state.KyberPreKeyRecord
 import org.signal.libsignal.protocol.state.PreKeyBundle
 import org.signal.libsignal.protocol.state.PreKeyRecord
+import org.signal.libsignal.protocol.state.SessionRecord
 import org.signal.libsignal.protocol.state.SignedPreKeyRecord
 
 class PreKeyBundleArgs : Record {
@@ -273,6 +276,57 @@ class ExpoLibsignalModule : Module() {
         val pk = ref.bundle.preKey
         if (pk == null) null else PublicKeyRef(pk)
       }
+    }
+
+    AsyncFunction("deserializeSessionRecord") Coroutine { bytes: ByteArray ->
+      try {
+        SessionRecordRef(SessionRecord(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    Class(SessionRecordRef::class) {
+      Constructor {
+        throw IllegalStateException("SessionRecordRef is not directly constructable from JS. Use SessionRecord.deserialize() or get one from SessionBuilder/SessionCipher.")
+      }
+      Function("serialize") { ref: SessionRecordRef -> ref.record.serialize() }
+    }
+
+    AsyncFunction("deserializeSignalMessage") Coroutine { bytes: ByteArray ->
+      try {
+        SignalMessageRef(SignalMessage(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    Class(SignalMessageRef::class) {
+      Constructor {
+        throw IllegalStateException("SignalMessageRef is not directly constructable from JS. Use SignalMessage.deserialize().")
+      }
+      Function("serialize") { ref: SignalMessageRef -> ref.message.serialize() }
+    }
+
+    AsyncFunction("deserializePreKeySignalMessage") Coroutine { bytes: ByteArray ->
+      try {
+        PreKeySignalMessageRef(PreKeySignalMessage(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    Class(PreKeySignalMessageRef::class) {
+      Constructor {
+        throw IllegalStateException("PreKeySignalMessageRef is not directly constructable from JS. Use PreKeySignalMessage.deserialize().")
+      }
+      Function("serialize") { ref: PreKeySignalMessageRef -> ref.message.serialize() }
+      Function("registrationId") { ref: PreKeySignalMessageRef -> ref.message.registrationId }
+      Function("preKeyId") { ref: PreKeySignalMessageRef ->
+        val opt = ref.message.preKeyId
+        if (opt.isPresent) opt.get() else null
+      }
+      Function("signedPreKeyId") { ref: PreKeySignalMessageRef -> ref.message.signedPreKeyId }
     }
   }
 }

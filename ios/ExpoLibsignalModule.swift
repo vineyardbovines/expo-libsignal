@@ -268,5 +268,55 @@ public final class ExpoLibsignalModule: Module {
         ref.bundle.preKeyPublic.map { PublicKeyRef(key: $0) }
       }
     }
+
+    AsyncFunction("deserializeSessionRecord") { (bytes: Data) -> SessionRecordRef in
+      do {
+        let record = try SessionRecord(bytes: bytes)
+        return SessionRecordRef(record: record)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(SessionRecordRef.self) {
+      Function("serialize") { (ref: SessionRecordRef) -> Data in ref.record.serialize() }
+    }
+
+    AsyncFunction("deserializeSignalMessage") { (bytes: Data) -> SignalMessageRef in
+      do {
+        let msg = try SignalMessage(bytes: bytes)
+        return SignalMessageRef(message: msg)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(SignalMessageRef.self) {
+      Function("serialize") { (ref: SignalMessageRef) -> Data in ref.message.serialize() }
+    }
+
+    AsyncFunction("deserializePreKeySignalMessage") { (bytes: Data) -> PreKeySignalMessageRef in
+      do {
+        let msg = try PreKeySignalMessage(bytes: bytes)
+        return PreKeySignalMessageRef(message: msg)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(PreKeySignalMessageRef.self) {
+      Function("serialize") { (ref: PreKeySignalMessageRef) -> Data in
+        return try ref.message.serialize()
+      }
+      Function("registrationId") { (ref: PreKeySignalMessageRef) -> UInt32 in
+        return try ref.message.registrationId()
+      }
+      Function("preKeyId") { (ref: PreKeySignalMessageRef) -> UInt32? in
+        return try ref.message.preKeyId()
+      }
+      Function("signedPreKeyId") { (ref: PreKeySignalMessageRef) -> UInt32 in
+        return ref.message.signedPreKeyId
+      }
+    }
   }
 }
