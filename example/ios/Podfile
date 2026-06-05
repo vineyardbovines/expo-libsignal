@@ -21,7 +21,10 @@ platform :ios, podfile_properties['ios.deploymentTarget'] || '16.4'
 
 prepare_react_native_project!
 
-target 'libsignalexample' do
+# expo-libsignal: LibSignalClient (v0.94.4)
+pod 'LibSignalClient', :podspec => 'https://raw.githubusercontent.com/signalapp/libsignal/v0.94.4/LibSignalClient.podspec'
+
+target 'expolibsignalexample' do
   use_expo_modules!
 
   if ENV['EXPO_USE_COMMUNITY_AUTOLINKING'] == '1'

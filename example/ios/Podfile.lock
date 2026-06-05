@@ -37,6 +37,9 @@ PODS:
     - ExpoModulesCore
   - ExpoKeepAwake (56.0.3):
     - ExpoModulesCore
+  - ExpoLibsignal (0.0.1):
+    - ExpoModulesCore
+    - LibSignalClient (= 0.94.4)
   - ExpoLogBox (56.0.12):
     - React-Core
   - ExpoModulesCore (56.0.14):
@@ -73,6 +76,7 @@ PODS:
   - hermes-engine (250829098.0.10):
     - hermes-engine/Pre-built (= 250829098.0.10)
   - hermes-engine/Pre-built (250829098.0.10)
+  - LibSignalClient (0.94.4)
   - RCTDeprecation (0.85.3)
   - RCTRequired (0.85.3)
   - RCTSwiftUI (0.85.3)
@@ -1857,8 +1861,6 @@ PODS:
     - React-utils (= 0.85.3)
     - ReactNativeDependencies
   - ReactNativeDependencies (0.85.3)
-  - ExpoLibsignal (1.0.0):
-    - ExpoModulesCore
   - Yoga (0.0.0)
 
 DEPENDENCIES:
@@ -1869,12 +1871,14 @@ DEPENDENCIES:
   - ExpoFileSystem (from `../node_modules/expo/node_modules/expo-file-system/ios`)
   - ExpoFont (from `../node_modules/expo/node_modules/expo-font/ios`)
   - ExpoKeepAwake (from `../node_modules/expo/node_modules/expo-keep-awake/ios`)
+  - ExpoLibsignal (from `../../ios`)
   - "ExpoLogBox (from `../node_modules/expo/node_modules/@expo/log-box`)"
   - ExpoModulesCore (from `../node_modules/expo-modules-core`)
   - ExpoModulesJSI (from `../node_modules/expo-modules-jsi/apple`)
   - ExpoModulesWorklets (from `../node_modules/expo-modules-core`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
+  - LibSignalClient (from `https://raw.githubusercontent.com/signalapp/libsignal/v0.94.4/LibSignalClient.podspec`)
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../node_modules/react-native/Libraries/Required`)
   - RCTSwiftUI (from `../node_modules/react-native/ReactApple/RCTSwiftUI`)
@@ -1947,7 +1951,6 @@ DEPENDENCIES:
   - ReactCodegen (from `build/generated/ios/ReactCodegen`)
   - ReactCommon/turbomodule/core (from `../node_modules/react-native/ReactCommon`)
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
-  - ExpoLibsignal (from `../../ios`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
 EXTERNAL SOURCES:
@@ -1965,6 +1968,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo/node_modules/expo-font/ios"
   ExpoKeepAwake:
     :path: "../node_modules/expo/node_modules/expo-keep-awake/ios"
+  ExpoLibsignal:
+    :path: "../../ios"
   ExpoLogBox:
     :path: "../node_modules/expo/node_modules/@expo/log-box"
   ExpoModulesCore:
@@ -1978,6 +1983,8 @@ EXTERNAL SOURCES:
   hermes-engine:
     :podspec: "../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec"
     :tag: hermes-v250829098.0.10
+  LibSignalClient:
+    :podspec: https://raw.githubusercontent.com/signalapp/libsignal/v0.94.4/LibSignalClient.podspec
   RCTDeprecation:
     :path: "../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation"
   RCTRequired:
@@ -2120,8 +2127,6 @@ EXTERNAL SOURCES:
     :path: "../node_modules/react-native/ReactCommon"
   ReactNativeDependencies:
     :podspec: "../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec"
-  ExpoLibsignal:
-    :path: "../../ios"
   Yoga:
     :path: "../node_modules/react-native/ReactCommon/yoga"
 
@@ -2133,12 +2138,14 @@ SPEC CHECKSUMS:
   ExpoFileSystem: d730a1cb33f2c91dec01561f0d710054fda32ae9
   ExpoFont: 6fe496f2be617ed4367f159f215dcc4ba27d37d6
   ExpoKeepAwake: 359c47a1d9ccc3a3c519bca6e39562cce230c5bb
+  ExpoLibsignal: dc914af0203c2a5eacaf8b65544919052b65a222
   ExpoLogBox: 7aa03244fe5eeced5129e4ec7ad5bd9a3994378e
   ExpoModulesCore: 787e3ac2a8f8798c9837be2a1b5abb719bab6342
   ExpoModulesJSI: f25a013ea9a79904bdd535e4bea0872e155cde09
   ExpoModulesWorklets: 3f847eb6ba544bd4b55d585f89b3b18f8cd73a72
   FBLazyVector: 24e62c765683b8d89006a88a2c8f5cf019f0074d
-  hermes-engine: 36d7751b83e4e85e210507ed5acd5b363f58e3dc
+  hermes-engine: 2f5eb9033e6dce96026c0dfb59f8924e9420316b
+  LibSignalClient: c695b4980b1e9c228ef6752b5af80bd5f6b672b2
   RCTDeprecation: a4c521821fab57cbb125b36effe84d897d0dfa12
   RCTRequired: 9f3a7e5645d4bc3f551593de7550bb66ab6e42bc
   RCTSwiftUI: 239ed2eb9e73de5a6f518810630f0c95e01c8702
@@ -2147,7 +2154,7 @@ SPEC CHECKSUMS:
   React: e2dc35338068bbd299c66f043ae0d7f25de8499e
   React-callinvoker: 28b25d21b124c26cebaea713ba7d801b9351dc48
   React-Core: 02ed7d2ffb70437bdf2aba074a13078a7b0b9ff0
-  React-Core-prebuilt: 57a50427364d919d666a24548f241b69c4eb2269
+  React-Core-prebuilt: fe0ee9fe07769deeca93377a9c8199f4cedc3c7d
   React-CoreModules: b3a5a42dadcde3b5d47b325bd912eb2ced89e146
   React-cxxreact: fe8f88dda044e5905e99a00f41b7a874c3908716
   React-debug: 92944dc4d89f56d640e75498266cbde557a48189
@@ -2209,10 +2216,9 @@ SPEC CHECKSUMS:
   ReactAppDependencyProvider: 25c9c516839be2c5e3d3344f95dc7da5f7e63fc2
   ReactCodegen: c8f81e6c6f762dcf442a6203a1fb58f7dafc8014
   ReactCommon: 7dfc3250793bf36cf221096ff59e1179e13eef7f
-  ReactNativeDependencies: a4ff8c932d61ccdaa4c1a5ab8de20c06262d0863
-  ExpoLibsignal: f1b10af83f2d46773c42885af40c6380c79c30a8
+  ReactNativeDependencies: d6508795172f99a6be50a1ec8a7a33b1ecdfb461
   Yoga: 77dfa8673de2874e1855002ae59c68b8be9b007b
 
-PODFILE CHECKSUM: c8e42c894360fac5f0d5a8d11efedfd724526dce
+PODFILE CHECKSUM: 63ed0b16d346df260a4af62d0b21f57969265470
 
 COCOAPODS: 1.16.2
