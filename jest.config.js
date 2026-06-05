@@ -4,6 +4,7 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts'],
   collectCoverageFrom: ['src/**/*.{ts,tsx}', '!src/**/*.d.ts'],
   moduleNameMapper: {
+    '^expo$': '<rootDir>/__mocks__/expo.js',
     '^expo-libsignal$': '<rootDir>/src/index.ts',
   },
   transform: {
