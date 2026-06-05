@@ -1,0 +1,31 @@
+node_modules/
+.expo/
+.DS_Store
+*.log
+
+# iOS
+ios/Pods/
+ios/build/
+ios/*.xcworkspace
+ios/.xcode.env.local
+
+# Android
+android/.gradle/
+android/build/
+android/local.properties
+
+# TypeScript
+*.tsbuildinfo
+dist/
+build/
+
+# Testing
+coverage/
+
+# Editor
+.vscode/
+.idea/
+
+# Env / secrets
+.env
+.env.local
