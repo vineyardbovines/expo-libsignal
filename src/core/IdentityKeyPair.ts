@@ -1,11 +1,26 @@
 import { NativeModule } from '../ExpoLibsignalModule'
 
-// Native SharedObject refs — opaque to consumers. They are real objects with
-// methods registered by the native Class() definitions, but we only expose them
-// via the typed wrappers below.
-type IdentityKeyPairRef = object
-type PublicIdentityKeyRef = object
-type PrivateKeyRef = object
+// Native SharedObject refs. These are real JS objects whose methods come from
+// the `Class()` registrations in Swift/Kotlin — each method is auto-bound to
+// the instance, so we call them as `ref.serialize()`, `ref.publicKey()`, etc.
+//
+// The exact shape isn't visible to TypeScript (the bridge resolves it at
+// runtime), so we keep these typed as opaque objects with the methods we
+// expect upstream to expose.
+
+interface IdentityKeyPairRef {
+  serialize(): Uint8Array
+  publicKey(): PublicIdentityKeyRef
+  privateKey(): PrivateKeyRef
+}
+
+interface PublicIdentityKeyRef {
+  serialize(): Uint8Array
+}
+
+interface PrivateKeyRef {
+  serialize(): Uint8Array
+}
 
 export class IdentityKey {
   private readonly ref: PublicIdentityKeyRef
@@ -13,7 +28,7 @@ export class IdentityKey {
     this.ref = ref
   }
   serialize(): Uint8Array {
-    return NativeModule.PublicIdentityKeyRef.serialize(this.ref)
+    return this.ref.serialize()
   }
 }
 
@@ -23,7 +38,7 @@ export class PrivateKey {
     this.ref = ref
   }
   serialize(): Uint8Array {
-    return NativeModule.PrivateKeyRef.serialize(this.ref)
+    return this.ref.serialize()
   }
 }
 
@@ -35,24 +50,24 @@ export class IdentityKeyPair {
   }
 
   static async generate(): Promise<IdentityKeyPair> {
-    const ref = await NativeModule.IdentityKeyPairRef.generate()
+    const ref = (await NativeModule.generateIdentityKeyPair()) as IdentityKeyPairRef
     return new IdentityKeyPair(ref)
   }
 
   static async deserialize(bytes: Uint8Array): Promise<IdentityKeyPair> {
-    const ref = await NativeModule.IdentityKeyPairRef.deserialize(bytes)
+    const ref = (await NativeModule.deserializeIdentityKeyPair(bytes)) as IdentityKeyPairRef
     return new IdentityKeyPair(ref)
   }
 
   serialize(): Uint8Array {
-    return NativeModule.IdentityKeyPairRef.serialize(this.ref)
+    return this.ref.serialize()
   }
 
   publicKey(): IdentityKey {
-    return new IdentityKey(NativeModule.IdentityKeyPairRef.publicKey(this.ref))
+    return new IdentityKey(this.ref.publicKey())
   }
 
   privateKey(): PrivateKey {
-    return new PrivateKey(NativeModule.IdentityKeyPairRef.privateKey(this.ref))
+    return new PrivateKey(this.ref.privateKey())
   }
 }
