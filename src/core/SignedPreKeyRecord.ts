@@ -30,7 +30,7 @@ export class SignedPreKeyRecord {
     }
     const ref = (await NativeModule.generateSignedPreKeyRecord(
       id,
-      identityKeyPair,
+      identityKeyPair._ref(),
       timestamp,
     )) as SignedPreKeyRecordRef
     return new SignedPreKeyRecord(ref)

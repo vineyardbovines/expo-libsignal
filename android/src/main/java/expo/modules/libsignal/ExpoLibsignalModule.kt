@@ -5,6 +5,7 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
+import org.signal.libsignal.protocol.IdentityKey
 import org.signal.libsignal.protocol.IdentityKeyPair as SignalIdentityKeyPair
 import org.signal.libsignal.protocol.SignalProtocolAddress
 import org.signal.libsignal.protocol.ecc.ECKeyPair
@@ -20,18 +21,15 @@ import org.signal.libsignal.protocol.state.PreKeyRecord
 import org.signal.libsignal.protocol.state.SessionRecord
 import org.signal.libsignal.protocol.state.SignedPreKeyRecord
 
+// Only primitive fields — incoming Records cannot carry SharedObjects or
+// typed arrays on Android, so key/signature bytes are positional arguments
+// (see the note in SessionOps.kt).
 class PreKeyBundleArgs : Record {
   @Field var registrationId: Int = 0
   @Field var deviceId: Int = 0
-  @Field var identityKey: PublicIdentityKeyRef? = null
   @Field var signedPreKeyId: Int = 0
-  @Field var signedPreKeyPublic: PublicKeyRef? = null
-  @Field var signedPreKeySignature: ByteArray = ByteArray(0)
   @Field var kyberPreKeyId: Int = 0
-  @Field var kyberPreKeyPublic: ByteArray = ByteArray(0)
-  @Field var kyberPreKeySignature: ByteArray = ByteArray(0)
   @Field var preKeyId: Int? = null
-  @Field var preKeyPublic: PublicKeyRef? = null
 }
 
 class ExpoLibsignalModule : Module() {
@@ -78,6 +76,14 @@ class ExpoLibsignalModule : Module() {
 
       Function("privateKey") { ref: IdentityKeyPairRef ->
         PrivateKeyRef(ref.keyPair.privateKey)
+      }
+    }
+
+    AsyncFunction("deserializeIdentityKey") Coroutine { bytes: ByteArray ->
+      try {
+        PublicIdentityKeyRef(IdentityKey(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
       }
     }
 
@@ -220,25 +226,24 @@ class ExpoLibsignalModule : Module() {
       }
     }
 
-    AsyncFunction("createPreKeyBundle") Coroutine { args: PreKeyBundleArgs ->
-      val identity = args.identityKey ?: throw IllegalArgumentException("identityKey required")
-      val signedPub = args.signedPreKeyPublic ?: throw IllegalArgumentException("signedPreKeyPublic required")
-      val kyberPub = KEMPublicKey(args.kyberPreKeyPublic)
+    AsyncFunction("createPreKeyBundle") Coroutine { args: PreKeyBundleArgs, identityKeyBytes: ByteArray, signedPreKeyPublicBytes: ByteArray, signedPreKeySignature: ByteArray, kyberPreKeyPublicBytes: ByteArray, kyberPreKeySignature: ByteArray, preKeyPublicBytes: ByteArray? ->
+      val identity = IdentityKey(identityKeyBytes)
+      val signedPub = ECPublicKey(signedPreKeyPublicBytes)
+      val kyberPub = KEMPublicKey(kyberPreKeyPublicBytes)
       val preKeyId = args.preKeyId
-      val preKeyPub = args.preKeyPublic
-      val bundle = if (preKeyId != null && preKeyPub != null) {
+      val bundle = if (preKeyId != null && preKeyPublicBytes != null) {
         PreKeyBundle(
           args.registrationId,
           args.deviceId,
           preKeyId,
-          preKeyPub.key,
+          ECPublicKey(preKeyPublicBytes),
           args.signedPreKeyId,
-          signedPub.key,
-          args.signedPreKeySignature,
-          identity.key,
+          signedPub,
+          signedPreKeySignature,
+          identity,
           args.kyberPreKeyId,
           kyberPub,
-          args.kyberPreKeySignature,
+          kyberPreKeySignature,
         )
       } else {
         PreKeyBundle(
@@ -247,12 +252,12 @@ class ExpoLibsignalModule : Module() {
           PreKeyBundle.NULL_PRE_KEY_ID,
           null,
           args.signedPreKeyId,
-          signedPub.key,
-          args.signedPreKeySignature,
-          identity.key,
+          signedPub,
+          signedPreKeySignature,
+          identity,
           args.kyberPreKeyId,
           kyberPub,
-          args.kyberPreKeySignature,
+          kyberPreKeySignature,
         )
       }
       PreKeyBundleRef(bundle)
@@ -332,33 +337,33 @@ class ExpoLibsignalModule : Module() {
       Function("signedPreKeyId") { ref: PreKeySignalMessageRef -> ref.message.signedPreKeyId }
     }
 
-    AsyncFunction("processPreKeyBundleOp") Coroutine { args: ProcessPreKeyBundleArgs ->
+    AsyncFunction("processPreKeyBundleOp") Coroutine { config: SessionOpConfig, bundle: PreKeyBundleRef, ourIdentityKeyPair: ByteArray, existingSession: ByteArray?, existingRemoteIdentity: ByteArray? ->
       try {
-        runProcessPreKeyBundleOp(args)
+        runProcessPreKeyBundleOp(config, bundle, ourIdentityKeyPair, existingSession, existingRemoteIdentity)
       } catch (e: Throwable) {
         throw RuntimeException(mapSignalError(e).message)
       }
     }
 
-    AsyncFunction("encryptOp") Coroutine { args: EncryptArgs ->
+    AsyncFunction("encryptOp") Coroutine { config: SessionOpConfig, plaintext: ByteArray, ourIdentityKeyPair: ByteArray, existingSession: ByteArray, remoteIdentity: ByteArray? ->
       try {
-        runEncryptOp(args)
+        runEncryptOp(config, plaintext, ourIdentityKeyPair, existingSession, remoteIdentity)
       } catch (e: Throwable) {
         throw RuntimeException(mapSignalError(e).message)
       }
     }
 
-    AsyncFunction("decryptPreKeySignalOp") Coroutine { args: DecryptPreKeySignalArgs ->
+    AsyncFunction("decryptPreKeySignalOp") Coroutine { config: SessionOpConfig, message: ByteArray, ourIdentityKeyPair: ByteArray, existingSession: ByteArray?, existingRemoteIdentity: ByteArray?, preKey: ByteArray?, signedPreKey: ByteArray, kyberPreKey: ByteArray ->
       try {
-        runDecryptPreKeySignalOp(args)
+        runDecryptPreKeySignalOp(config, message, ourIdentityKeyPair, existingSession, existingRemoteIdentity, preKey, signedPreKey, kyberPreKey)
       } catch (e: Throwable) {
         throw RuntimeException(mapSignalError(e).message)
       }
     }
 
-    AsyncFunction("decryptSignalOp") Coroutine { args: DecryptSignalArgs ->
+    AsyncFunction("decryptSignalOp") Coroutine { config: SessionOpConfig, message: ByteArray, ourIdentityKeyPair: ByteArray, existingSession: ByteArray, remoteIdentity: ByteArray? ->
       try {
-        runDecryptSignalOp(args)
+        runDecryptSignalOp(config, message, ourIdentityKeyPair, existingSession, remoteIdentity)
       } catch (e: Throwable) {
         throw RuntimeException(mapSignalError(e).message)
       }

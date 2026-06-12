@@ -2,130 +2,211 @@ import Foundation
 import ExpoModulesCore
 import LibSignalClient
 
-// MARK: - Argument and result records
+// The op boundary: argument Records carry only primitives (Expo Modules on
+// Android converts incoming Records via plain maps, which cannot carry
+// SharedObjects or typed arrays), every byte payload is a positional
+// Uint8Array argument (max 8 args per function — decryptPreKeySignalOp uses
+// all 8), and PreKeyBundle — which has no serialized form in libsignal — is
+// a positional SharedObject. Result Records may carry bytes: the return path
+// converts ByteArray/Data fields correctly on both platforms.
 
-struct ProcessPreKeyBundleArgs: Record {
-  @Field var bundle: PreKeyBundleRef? = nil
-  @Field var remoteAddress: ProtocolAddressRef? = nil
-  @Field var localAddress: ProtocolAddressRef? = nil
-  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = nil
+// MARK: - Records
+
+struct SessionOpConfig: Record {
+  @Field var remoteName: String = ""
+  @Field var remoteDeviceId: UInt32 = 0
+  @Field var localName: String = ""
+  @Field var localDeviceId: UInt32 = 0
   @Field var ourRegistrationId: UInt32 = 0
-  @Field var existingSession: SessionRecordRef? = nil
-  @Field var existingRemoteIdentity: PublicIdentityKeyRef? = nil
   @Field var nowMs: Double = 0
 }
 
 struct ProcessPreKeyBundleResult: Record {
-  @Field var newSession: SessionRecordRef? = nil
+  @Field var newSession: Data = Data()
   @Field var identityChange: String = ""
-  @Field var trustedRemoteIdentity: PublicIdentityKeyRef? = nil
+  @Field var trustedRemoteIdentity: Data = Data()
 }
 
-// MARK: - Store seeding helpers
+struct EncryptResult: Record {
+  @Field var messageType: String = ""
+  @Field var preKeySignalMessage: Data? = nil
+  @Field var signalMessage: Data? = nil
+  @Field var newSession: Data = Data()
+  @Field var identityChange: String? = nil
+}
+
+struct DecryptPreKeySignalResult: Record {
+  @Field var plaintext: Data = Data()
+  @Field var newSession: Data = Data()
+  @Field var identityChange: String? = nil
+  @Field var consumedPreKeyId: UInt32? = nil
+  @Field var kyberPreKeyId: UInt32 = 0
+}
+
+struct DecryptSignalResult: Record {
+  @Field var plaintext: Data = Data()
+  @Field var newSession: Data = Data()
+  @Field var identityChange: String? = nil
+}
+
+// MARK: - Helpers
+
+private struct ParsedSessionOpArgs {
+  let remoteAddress: ProtocolAddress
+  let localAddress: ProtocolAddress
+  let identityKeyPair: IdentityKeyPair
+  let existingSession: SessionRecord?
+  let existingRemoteIdentity: IdentityKey?
+}
+
+private func parseSessionOpArgs(
+  config: SessionOpConfig,
+  ourIdentityKeyPair: Data,
+  existingSession: Data?,
+  existingRemoteIdentity: Data?
+) throws -> ParsedSessionOpArgs {
+  return ParsedSessionOpArgs(
+    remoteAddress: try ProtocolAddress(name: config.remoteName, deviceId: config.remoteDeviceId),
+    localAddress: try ProtocolAddress(name: config.localName, deviceId: config.localDeviceId),
+    identityKeyPair: try IdentityKeyPair(bytes: ourIdentityKeyPair),
+    existingSession: try existingSession.map { try SessionRecord(bytes: $0) },
+    existingRemoteIdentity: try existingRemoteIdentity.map { try IdentityKey(bytes: $0) }
+  )
+}
 
 func seedStore(
-  identityKeyPair: IdentityKeyPairRef,
+  identityKeyPair: IdentityKeyPair,
   registrationId: UInt32,
-  remoteAddress: ProtocolAddressRef? = nil,
-  existingSession: SessionRecordRef? = nil,
-  existingRemoteIdentity: PublicIdentityKeyRef? = nil
+  remoteAddress: ProtocolAddress? = nil,
+  existingSession: SessionRecord? = nil,
+  existingRemoteIdentity: IdentityKey? = nil
 ) throws -> InMemorySignalProtocolStore {
-  let store = InMemorySignalProtocolStore(identity: identityKeyPair.keyPair, registrationId: registrationId)
+  let store = InMemorySignalProtocolStore(identity: identityKeyPair, registrationId: registrationId)
   let ctx = NullContext()
   if let session = existingSession, let addr = remoteAddress {
-    try store.storeSession(session.record, for: addr.address, context: ctx)
+    try store.storeSession(session, for: addr, context: ctx)
   }
   if let ident = existingRemoteIdentity, let addr = remoteAddress {
-    _ = try store.saveIdentity(ident.key, for: addr.address, context: ctx)
+    _ = try store.saveIdentity(ident, for: addr, context: ctx)
   }
   return store
 }
 
 func identityChangeString(
   store: InMemorySignalProtocolStore,
-  remoteAddress: ProtocolAddressRef,
-  existing: PublicIdentityKeyRef?
+  remoteAddress: ProtocolAddress,
+  existing: IdentityKey?
 ) throws -> String {
-  let now = try store.identity(for: remoteAddress.address, context: NullContext())
-  if let now = now, let existing = existing, now == existing.key {
+  let now = try store.identity(for: remoteAddress, context: NullContext())
+  if let now = now, let existing = existing, now == existing {
     return "newOrUnchanged"
   }
   return existing == nil ? "newOrUnchanged" : "replacedExisting"
 }
 
-// MARK: - encryptOp
+// MARK: - processPreKeyBundleOp
 
-struct EncryptArgs: Record {
-  @Field var plaintext: Data = Data()
-  @Field var remoteAddress: ProtocolAddressRef? = nil
-  @Field var localAddress: ProtocolAddressRef? = nil
-  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = nil
-  @Field var ourRegistrationId: UInt32 = 0
-  @Field var existingSession: SessionRecordRef? = nil
-  @Field var remoteIdentity: PublicIdentityKeyRef? = nil
-  @Field var nowMs: Double = 0
-}
-
-struct EncryptResult: Record {
-  @Field var messageType: String = ""
-  @Field var preKeySignalMessage: PreKeySignalMessageRef? = nil
-  @Field var signalMessage: SignalMessageRef? = nil
-  @Field var newSession: SessionRecordRef? = nil
-  @Field var identityChange: String? = nil
-}
-
-func runEncryptOp(_ args: EncryptArgs) throws -> EncryptResult {
-  guard let remoteAddressRef = args.remoteAddress else {
-    throw Exception(name: "LibsignalError", description: "remoteAddress is required")
-  }
-  guard let localAddressRef = args.localAddress else {
-    throw Exception(name: "LibsignalError", description: "localAddress is required")
-  }
-  guard let identityKeyPairRef = args.ourIdentityKeyPair else {
-    throw Exception(name: "LibsignalError", description: "ourIdentityKeyPair is required")
-  }
-  guard let existingSessionRef = args.existingSession else {
-    throw Exception(name: "LibsignalError", description: "existingSession is required")
-  }
+func runProcessPreKeyBundleOp(
+  config: SessionOpConfig,
+  bundle: PreKeyBundleRef,
+  ourIdentityKeyPair: Data,
+  existingSession: Data?,
+  existingRemoteIdentity: Data?
+) throws -> ProcessPreKeyBundleResult {
+  let parsed = try parseSessionOpArgs(
+    config: config,
+    ourIdentityKeyPair: ourIdentityKeyPair,
+    existingSession: existingSession,
+    existingRemoteIdentity: existingRemoteIdentity
+  )
 
   let ctx = NullContext()
   let store = try seedStore(
-    identityKeyPair: identityKeyPairRef,
-    registrationId: args.ourRegistrationId,
-    remoteAddress: remoteAddressRef,
-    existingSession: existingSessionRef,
-    existingRemoteIdentity: args.remoteIdentity
+    identityKeyPair: parsed.identityKeyPair,
+    registrationId: config.ourRegistrationId,
+    remoteAddress: parsed.remoteAddress,
+    existingSession: parsed.existingSession,
+    existingRemoteIdentity: parsed.existingRemoteIdentity
   )
 
-  let ciphertext = try signalEncrypt(
-    message: args.plaintext,
-    for: remoteAddressRef.address,
-    localAddress: localAddressRef.address,
+  try processPreKeyBundle(
+    bundle.bundle,
+    for: parsed.remoteAddress,
+    ourAddress: parsed.localAddress,
     sessionStore: store,
     identityStore: store,
-    now: Date(timeIntervalSince1970: args.nowMs / 1000.0),
+    now: Date(timeIntervalSince1970: config.nowMs / 1000.0),
     context: ctx
   )
 
-  guard let newSession = try store.loadSession(for: remoteAddressRef.address, context: ctx) else {
+  guard let newSession = try store.loadSession(for: parsed.remoteAddress, context: ctx) else {
+    throw Exception(name: "LibsignalError", description: "processPreKeyBundle did not produce a session")
+  }
+  let trustedRemoteIdentity = try store.identity(for: parsed.remoteAddress, context: ctx)
+    ?? bundle.bundle.identityKey
+  let change = try identityChangeString(
+    store: store,
+    remoteAddress: parsed.remoteAddress,
+    existing: parsed.existingRemoteIdentity
+  )
+
+  var result = ProcessPreKeyBundleResult()
+  result.newSession = newSession.serialize()
+  result.identityChange = change
+  result.trustedRemoteIdentity = trustedRemoteIdentity.serialize()
+  return result
+}
+
+// MARK: - encryptOp
+
+func runEncryptOp(
+  config: SessionOpConfig,
+  plaintext: Data,
+  ourIdentityKeyPair: Data,
+  existingSession: Data,
+  remoteIdentity: Data?
+) throws -> EncryptResult {
+  let parsed = try parseSessionOpArgs(
+    config: config,
+    ourIdentityKeyPair: ourIdentityKeyPair,
+    existingSession: existingSession,
+    existingRemoteIdentity: remoteIdentity
+  )
+
+  let ctx = NullContext()
+  let store = try seedStore(
+    identityKeyPair: parsed.identityKeyPair,
+    registrationId: config.ourRegistrationId,
+    remoteAddress: parsed.remoteAddress,
+    existingSession: parsed.existingSession,
+    existingRemoteIdentity: parsed.existingRemoteIdentity
+  )
+
+  let ciphertext = try signalEncrypt(
+    message: plaintext,
+    for: parsed.remoteAddress,
+    localAddress: parsed.localAddress,
+    sessionStore: store,
+    identityStore: store,
+    now: Date(timeIntervalSince1970: config.nowMs / 1000.0),
+    context: ctx
+  )
+
+  guard let newSession = try store.loadSession(for: parsed.remoteAddress, context: ctx) else {
     throw Exception(name: "LibsignalError", description: "encryptOp produced no session")
   }
 
   var result = EncryptResult()
-  result.newSession = SessionRecordRef(record: newSession)
+  result.newSession = newSession.serialize()
   result.identityChange = "newOrUnchanged"
 
   switch ciphertext.messageType {
   case .preKey:
-    let bytes = ciphertext.serialize()
-    let preKeyMsg = try PreKeySignalMessage(bytes: bytes)
     result.messageType = "preKeySignal"
-    result.preKeySignalMessage = PreKeySignalMessageRef(message: preKeyMsg)
+    result.preKeySignalMessage = Data(ciphertext.serialize())
   case .whisper:
-    let bytes = ciphertext.serialize()
-    let signalMsg = try SignalMessage(bytes: bytes)
     result.messageType = "signal"
-    result.signalMessage = SignalMessageRef(message: signalMsg)
+    result.signalMessage = Data(ciphertext.serialize())
   default:
     throw Exception(name: "LibsignalError", description: "encryptOp produced unexpected ciphertext type \(ciphertext.messageType.rawValue)")
   }
@@ -134,69 +215,50 @@ func runEncryptOp(_ args: EncryptArgs) throws -> EncryptResult {
 
 // MARK: - decryptPreKeySignalOp
 
-struct DecryptPreKeySignalArgs: Record {
-  @Field var message: PreKeySignalMessageRef? = nil
-  @Field var remoteAddress: ProtocolAddressRef? = nil
-  @Field var localAddress: ProtocolAddressRef? = nil
-  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = nil
-  @Field var ourRegistrationId: UInt32 = 0
-  @Field var existingSession: SessionRecordRef? = nil
-  @Field var existingRemoteIdentity: PublicIdentityKeyRef? = nil
-  @Field var preKey: PreKeyRecordRef? = nil
-  @Field var signedPreKey: SignedPreKeyRecordRef? = nil
-  @Field var kyberPreKey: KyberPreKeyRecordRef? = nil
-}
+func runDecryptPreKeySignalOp(
+  config: SessionOpConfig,
+  message: Data,
+  ourIdentityKeyPair: Data,
+  existingSession: Data?,
+  existingRemoteIdentity: Data?,
+  preKey: Data?,
+  signedPreKey: Data,
+  kyberPreKey: Data
+) throws -> DecryptPreKeySignalResult {
+  let parsed = try parseSessionOpArgs(
+    config: config,
+    ourIdentityKeyPair: ourIdentityKeyPair,
+    existingSession: existingSession,
+    existingRemoteIdentity: existingRemoteIdentity
+  )
 
-struct DecryptPreKeySignalResult: Record {
-  @Field var plaintext: Data = Data()
-  @Field var newSession: SessionRecordRef? = nil
-  @Field var identityChange: String? = nil
-  @Field var consumedPreKeyId: UInt32? = nil
-  @Field var kyberPreKeyId: UInt32 = 0
-}
-
-func runDecryptPreKeySignalOp(_ args: DecryptPreKeySignalArgs) throws -> DecryptPreKeySignalResult {
-  guard let messageRef = args.message else {
-    throw Exception(name: "LibsignalError", description: "message is required")
-  }
-  guard let remoteAddressRef = args.remoteAddress else {
-    throw Exception(name: "LibsignalError", description: "remoteAddress is required")
-  }
-  guard let localAddressRef = args.localAddress else {
-    throw Exception(name: "LibsignalError", description: "localAddress is required")
-  }
-  guard let identityKeyPairRef = args.ourIdentityKeyPair else {
-    throw Exception(name: "LibsignalError", description: "ourIdentityKeyPair is required")
-  }
-  guard let signedPreKeyRef = args.signedPreKey else {
-    throw Exception(name: "LibsignalError", description: "signedPreKey is required")
-  }
-  guard let kyberPreKeyRef = args.kyberPreKey else {
-    throw Exception(name: "LibsignalError", description: "kyberPreKey is required")
-  }
+  let parsedMessage = try PreKeySignalMessage(bytes: message)
+  let parsedSignedPreKey = try SignedPreKeyRecord(bytes: signedPreKey)
+  let parsedKyberPreKey = try KyberPreKeyRecord(bytes: kyberPreKey)
 
   let ctx = NullContext()
   let store = try seedStore(
-    identityKeyPair: identityKeyPairRef,
-    registrationId: args.ourRegistrationId,
-    remoteAddress: remoteAddressRef,
-    existingSession: args.existingSession,
-    existingRemoteIdentity: args.existingRemoteIdentity
+    identityKeyPair: parsed.identityKeyPair,
+    registrationId: config.ourRegistrationId,
+    remoteAddress: parsed.remoteAddress,
+    existingSession: parsed.existingSession,
+    existingRemoteIdentity: parsed.existingRemoteIdentity
   )
 
-  if let preKeyRef = args.preKey {
-    try store.storePreKey(preKeyRef.record, id: preKeyRef.record.id, context: ctx)
+  if let preKeyData = preKey {
+    let parsedPreKey = try PreKeyRecord(bytes: preKeyData)
+    try store.storePreKey(parsedPreKey, id: parsedPreKey.id, context: ctx)
   }
-  try store.storeSignedPreKey(signedPreKeyRef.record, id: signedPreKeyRef.record.id, context: ctx)
-  try store.storeKyberPreKey(kyberPreKeyRef.record, id: kyberPreKeyRef.record.id, context: ctx)
+  try store.storeSignedPreKey(parsedSignedPreKey, id: parsedSignedPreKey.id, context: ctx)
+  try store.storeKyberPreKey(parsedKyberPreKey, id: parsedKyberPreKey.id, context: ctx)
 
   // Read consumedPreKeyId before decrypt (the message carries it; libsignal removes the record during decrypt).
-  let consumedPreKeyId: UInt32? = try messageRef.message.preKeyId()
+  let consumedPreKeyId: UInt32? = try parsedMessage.preKeyId()
 
   let plaintext = try signalDecryptPreKey(
-    message: messageRef.message,
-    from: remoteAddressRef.address,
-    localAddress: localAddressRef.address,
+    message: parsedMessage,
+    from: parsed.remoteAddress,
+    localAddress: parsed.localAddress,
     sessionStore: store,
     identityStore: store,
     preKeyStore: store,
@@ -205,140 +267,70 @@ func runDecryptPreKeySignalOp(_ args: DecryptPreKeySignalArgs) throws -> Decrypt
     context: ctx
   )
 
-  guard let newSession = try store.loadSession(for: remoteAddressRef.address, context: ctx) else {
+  guard let newSession = try store.loadSession(for: parsed.remoteAddress, context: ctx) else {
     throw Exception(name: "LibsignalError", description: "decryptPreKeySignalOp produced no session")
   }
 
   var result = DecryptPreKeySignalResult()
   result.plaintext = Data(plaintext)
-  result.newSession = SessionRecordRef(record: newSession)
+  result.newSession = newSession.serialize()
   result.identityChange = try identityChangeString(
     store: store,
-    remoteAddress: remoteAddressRef,
-    existing: args.existingRemoteIdentity
+    remoteAddress: parsed.remoteAddress,
+    existing: parsed.existingRemoteIdentity
   )
   result.consumedPreKeyId = consumedPreKeyId
-  result.kyberPreKeyId = kyberPreKeyRef.record.id
+  result.kyberPreKeyId = parsedKyberPreKey.id
   return result
 }
 
 // MARK: - decryptSignalOp
 
-struct DecryptSignalArgs: Record {
-  @Field var message: SignalMessageRef? = nil
-  @Field var remoteAddress: ProtocolAddressRef? = nil
-  @Field var localAddress: ProtocolAddressRef? = nil
-  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = nil
-  @Field var ourRegistrationId: UInt32 = 0
-  @Field var existingSession: SessionRecordRef? = nil
-  @Field var remoteIdentity: PublicIdentityKeyRef? = nil
-}
+func runDecryptSignalOp(
+  config: SessionOpConfig,
+  message: Data,
+  ourIdentityKeyPair: Data,
+  existingSession: Data,
+  remoteIdentity: Data?
+) throws -> DecryptSignalResult {
+  let parsed = try parseSessionOpArgs(
+    config: config,
+    ourIdentityKeyPair: ourIdentityKeyPair,
+    existingSession: existingSession,
+    existingRemoteIdentity: remoteIdentity
+  )
 
-struct DecryptSignalResult: Record {
-  @Field var plaintext: Data = Data()
-  @Field var newSession: SessionRecordRef? = nil
-  @Field var identityChange: String? = nil
-}
-
-func runDecryptSignalOp(_ args: DecryptSignalArgs) throws -> DecryptSignalResult {
-  guard let messageRef = args.message else {
-    throw Exception(name: "LibsignalError", description: "message is required")
-  }
-  guard let remoteAddressRef = args.remoteAddress else {
-    throw Exception(name: "LibsignalError", description: "remoteAddress is required")
-  }
-  guard let localAddressRef = args.localAddress else {
-    throw Exception(name: "LibsignalError", description: "localAddress is required")
-  }
-  guard let identityKeyPairRef = args.ourIdentityKeyPair else {
-    throw Exception(name: "LibsignalError", description: "ourIdentityKeyPair is required")
-  }
-  guard let existingSessionRef = args.existingSession else {
-    throw Exception(name: "LibsignalError", description: "existingSession is required")
-  }
+  let parsedMessage = try SignalMessage(bytes: message)
 
   let ctx = NullContext()
   let store = try seedStore(
-    identityKeyPair: identityKeyPairRef,
-    registrationId: args.ourRegistrationId,
-    remoteAddress: remoteAddressRef,
-    existingSession: existingSessionRef,
-    existingRemoteIdentity: args.remoteIdentity
+    identityKeyPair: parsed.identityKeyPair,
+    registrationId: config.ourRegistrationId,
+    remoteAddress: parsed.remoteAddress,
+    existingSession: parsed.existingSession,
+    existingRemoteIdentity: parsed.existingRemoteIdentity
   )
 
   let plaintext = try signalDecrypt(
-    message: messageRef.message,
-    from: remoteAddressRef.address,
-    to: localAddressRef.address,
+    message: parsedMessage,
+    from: parsed.remoteAddress,
+    to: parsed.localAddress,
     sessionStore: store,
     identityStore: store,
     context: ctx
   )
 
-  guard let newSession = try store.loadSession(for: remoteAddressRef.address, context: ctx) else {
+  guard let newSession = try store.loadSession(for: parsed.remoteAddress, context: ctx) else {
     throw Exception(name: "LibsignalError", description: "decryptSignalOp produced no session")
   }
 
   var result = DecryptSignalResult()
   result.plaintext = Data(plaintext)
-  result.newSession = SessionRecordRef(record: newSession)
+  result.newSession = newSession.serialize()
   result.identityChange = try identityChangeString(
     store: store,
-    remoteAddress: remoteAddressRef,
-    existing: args.remoteIdentity
+    remoteAddress: parsed.remoteAddress,
+    existing: parsed.existingRemoteIdentity
   )
-  return result
-}
-
-// MARK: - processPreKeyBundleOp
-
-func runProcessPreKeyBundleOp(_ args: ProcessPreKeyBundleArgs) throws -> ProcessPreKeyBundleResult {
-  guard let bundleRef = args.bundle else {
-    throw Exception(name: "LibsignalError", description: "bundle is required")
-  }
-  guard let remoteAddressRef = args.remoteAddress else {
-    throw Exception(name: "LibsignalError", description: "remoteAddress is required")
-  }
-  guard let localAddressRef = args.localAddress else {
-    throw Exception(name: "LibsignalError", description: "localAddress is required")
-  }
-  guard let identityKeyPairRef = args.ourIdentityKeyPair else {
-    throw Exception(name: "LibsignalError", description: "ourIdentityKeyPair is required")
-  }
-
-  let ctx = NullContext()
-  let store = try seedStore(
-    identityKeyPair: identityKeyPairRef,
-    registrationId: args.ourRegistrationId,
-    remoteAddress: remoteAddressRef,
-    existingSession: args.existingSession,
-    existingRemoteIdentity: args.existingRemoteIdentity
-  )
-
-  try processPreKeyBundle(
-    bundleRef.bundle,
-    for: remoteAddressRef.address,
-    ourAddress: localAddressRef.address,
-    sessionStore: store,
-    identityStore: store,
-    now: Date(timeIntervalSince1970: args.nowMs / 1000.0),
-    context: ctx
-  )
-
-  guard let newSession = try store.loadSession(for: remoteAddressRef.address, context: ctx) else {
-    throw Exception(name: "LibsignalError", description: "processPreKeyBundle did not produce a session")
-  }
-  let trustedRemoteIdentity = try store.identity(for: remoteAddressRef.address, context: ctx)
-    ?? bundleRef.bundle.identityKey
-  let change = try identityChangeString(
-    store: store,
-    remoteAddress: remoteAddressRef,
-    existing: args.existingRemoteIdentity
-  )
-
-  var result = ProcessPreKeyBundleResult()
-  result.newSession = SessionRecordRef(record: newSession)
-  result.identityChange = change
-  result.trustedRemoteIdentity = PublicIdentityKeyRef(key: trustedRemoteIdentity)
   return result
 }

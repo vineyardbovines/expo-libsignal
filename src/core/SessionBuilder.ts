@@ -30,27 +30,34 @@ export class SessionBuilder {
     const existingRemoteIdentity = await identityStore.getIdentity(this.remote)
 
     let result: {
-      newSession: unknown
+      newSession: Uint8Array
       identityChange: 'newOrUnchanged' | 'replacedExisting'
-      trustedRemoteIdentity: unknown
+      trustedRemoteIdentity: Uint8Array
     }
     try {
-      result = await NativeModule.processPreKeyBundleOp({
-        bundle,
-        remoteAddress: this.remote,
-        localAddress: this.local,
-        ourIdentityKeyPair,
-        ourRegistrationId,
-        existingSession,
-        existingRemoteIdentity,
-        nowMs: Date.now(),
-      })
+      // Byte payloads travel as positional arguments and the bundle — which
+      // has no serialized form — as a positional SharedObject. Records cannot
+      // carry SharedObjects or typed arrays on Android.
+      result = await NativeModule.processPreKeyBundleOp(
+        {
+          remoteName: this.remote.name(),
+          remoteDeviceId: this.remote.deviceId(),
+          localName: this.local.name(),
+          localDeviceId: this.local.deviceId(),
+          ourRegistrationId,
+          nowMs: Date.now(),
+        },
+        bundle._ref(),
+        ourIdentityKeyPair.serialize(),
+        existingSession ? existingSession.serialize() : null,
+        existingRemoteIdentity ? existingRemoteIdentity.serialize() : null,
+      )
     } catch (e) {
       throw rethrowAsLibsignal(e)
     }
 
-    const newSession = new SessionRecord(result.newSession as never)
-    const trustedRemoteIdentity = new IdentityKey(result.trustedRemoteIdentity as never)
+    const newSession = await SessionRecord.deserialize(result.newSession)
+    const trustedRemoteIdentity = await IdentityKey.deserialize(result.trustedRemoteIdentity)
 
     await sessionStore.storeSession(this.remote, newSession)
     await identityStore.saveIdentity(this.remote, trustedRemoteIdentity)

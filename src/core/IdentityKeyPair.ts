@@ -27,8 +27,19 @@ export class IdentityKey {
   constructor(ref: PublicIdentityKeyRef) {
     this.ref = ref
   }
+
+  static async deserialize(bytes: Uint8Array): Promise<IdentityKey> {
+    const ref = (await NativeModule.deserializeIdentityKey(bytes)) as PublicIdentityKeyRef
+    return new IdentityKey(ref)
+  }
+
   serialize(): Uint8Array {
     return this.ref.serialize()
+  }
+
+  /** @internal */
+  _ref(): PublicIdentityKeyRef {
+    return this.ref
   }
 }
 
@@ -69,5 +80,10 @@ export class IdentityKeyPair {
 
   privateKey(): PrivateKey {
     return new PrivateKey(this.ref.privateKey())
+  }
+
+  /** @internal */
+  _ref(): IdentityKeyPairRef {
+    return this.ref
   }
 }

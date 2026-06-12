@@ -30,6 +30,17 @@ export class SessionCipher {
     this.local = local
   }
 
+  private opConfig(ourRegistrationId: number) {
+    return {
+      remoteName: this.remote.name(),
+      remoteDeviceId: this.remote.deviceId(),
+      localName: this.local.name(),
+      localDeviceId: this.local.deviceId(),
+      ourRegistrationId,
+      nowMs: Date.now(),
+    }
+  }
+
   async encrypt(plaintext: Uint8Array): Promise<CiphertextMessage> {
     const { sessionStore, identityStore } = this.stores
     const ourIdentityKeyPair = await identityStore.getIdentityKeyPair()
@@ -44,37 +55,36 @@ export class SessionCipher {
 
     let result: {
       messageType: 'preKeySignal' | 'signal'
-      preKeySignalMessage: unknown | null
-      signalMessage: unknown | null
-      newSession: unknown
+      preKeySignalMessage: Uint8Array | null
+      signalMessage: Uint8Array | null
+      newSession: Uint8Array
       identityChange: 'newOrUnchanged' | 'replacedExisting' | null
     }
     try {
-      result = await NativeModule.encryptOp({
+      // Byte payloads travel as positional arguments — Records cannot carry
+      // SharedObjects or typed arrays on Android.
+      result = await NativeModule.encryptOp(
+        this.opConfig(ourRegistrationId),
         plaintext,
-        remoteAddress: this.remote,
-        localAddress: this.local,
-        ourIdentityKeyPair,
-        ourRegistrationId,
-        existingSession,
-        remoteIdentity,
-        nowMs: Date.now(),
-      })
+        ourIdentityKeyPair.serialize(),
+        existingSession.serialize(),
+        remoteIdentity ? remoteIdentity.serialize() : null,
+      )
     } catch (e) {
       throw rethrowAsLibsignal(e)
     }
 
-    const newSession = new SessionRecord(result.newSession as never)
+    const newSession = await SessionRecord.deserialize(result.newSession)
     await sessionStore.storeSession(this.remote, newSession)
     if (remoteIdentity !== null) {
       await identityStore.saveIdentity(this.remote, remoteIdentity)
     }
 
     if (result.messageType === 'preKeySignal' && result.preKeySignalMessage !== null) {
-      return new PreKeySignalMessage(result.preKeySignalMessage as never)
+      return PreKeySignalMessage.deserialize(result.preKeySignalMessage)
     }
     if (result.messageType === 'signal' && result.signalMessage !== null) {
-      return new SignalMessage(result.signalMessage as never)
+      return SignalMessage.deserialize(result.signalMessage)
     }
     throw new Error(`encryptOp returned unexpected shape: ${result.messageType}`)
   }
@@ -107,29 +117,27 @@ export class SessionCipher {
 
     let result: {
       plaintext: Uint8Array
-      newSession: unknown
+      newSession: Uint8Array
       identityChange: 'newOrUnchanged' | 'replacedExisting' | null
       consumedPreKeyId: number | null
       kyberPreKeyId: number
     }
     try {
-      result = await NativeModule.decryptPreKeySignalOp({
-        message,
-        remoteAddress: this.remote,
-        localAddress: this.local,
-        ourIdentityKeyPair,
-        ourRegistrationId,
-        existingSession,
-        existingRemoteIdentity,
-        preKey,
-        signedPreKey,
-        kyberPreKey,
-      })
+      result = await NativeModule.decryptPreKeySignalOp(
+        this.opConfig(ourRegistrationId),
+        message.serialize(),
+        ourIdentityKeyPair.serialize(),
+        existingSession ? existingSession.serialize() : null,
+        existingRemoteIdentity ? existingRemoteIdentity.serialize() : null,
+        preKey ? preKey.serialize() : null,
+        signedPreKey.serialize(),
+        kyberPreKey.serialize(),
+      )
     } catch (e) {
       throw rethrowAsLibsignal(e)
     }
 
-    const newSession = new SessionRecord(result.newSession as never)
+    const newSession = await SessionRecord.deserialize(result.newSession)
     await sessionStore.storeSession(this.remote, newSession)
 
     if (result.consumedPreKeyId !== null) {
@@ -160,24 +168,22 @@ export class SessionCipher {
 
     let result: {
       plaintext: Uint8Array
-      newSession: unknown
+      newSession: Uint8Array
       identityChange: 'newOrUnchanged' | 'replacedExisting' | null
     }
     try {
-      result = await NativeModule.decryptSignalOp({
-        message,
-        remoteAddress: this.remote,
-        localAddress: this.local,
-        ourIdentityKeyPair,
-        ourRegistrationId,
-        existingSession,
-        remoteIdentity,
-      })
+      result = await NativeModule.decryptSignalOp(
+        this.opConfig(ourRegistrationId),
+        message.serialize(),
+        ourIdentityKeyPair.serialize(),
+        existingSession.serialize(),
+        remoteIdentity ? remoteIdentity.serialize() : null,
+      )
     } catch (e) {
       throw rethrowAsLibsignal(e)
     }
 
-    const newSession = new SessionRecord(result.newSession as never)
+    const newSession = await SessionRecord.deserialize(result.newSession)
     await sessionStore.storeSession(this.remote, newSession)
     if (remoteIdentity !== null) {
       await identityStore.saveIdentity(this.remote, remoteIdentity)

@@ -29,7 +29,7 @@ export class KyberPreKeyRecord {
     }
     const ref = (await NativeModule.generateKyberPreKeyRecord(
       id,
-      identityKeyPair,
+      identityKeyPair._ref(),
       timestamp,
     )) as KyberPreKeyRecordRef
     return new KyberPreKeyRecord(ref)

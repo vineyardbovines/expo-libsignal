@@ -3,243 +3,275 @@ package expo.modules.libsignal
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
 import java.time.Instant
+import org.signal.libsignal.protocol.IdentityKey
+import org.signal.libsignal.protocol.IdentityKeyPair as SignalIdentityKeyPair
 import org.signal.libsignal.protocol.SessionBuilder
 import org.signal.libsignal.protocol.SessionCipher
+import org.signal.libsignal.protocol.SignalProtocolAddress
 import org.signal.libsignal.protocol.message.CiphertextMessage
 import org.signal.libsignal.protocol.message.PreKeySignalMessage
 import org.signal.libsignal.protocol.message.SignalMessage
+import org.signal.libsignal.protocol.state.KyberPreKeyRecord
+import org.signal.libsignal.protocol.state.PreKeyRecord
+import org.signal.libsignal.protocol.state.SessionRecord
+import org.signal.libsignal.protocol.state.SignedPreKeyRecord
 import org.signal.libsignal.protocol.state.impl.InMemorySignalProtocolStore
 
-class ProcessPreKeyBundleArgs : Record {
-  @Field var bundle: PreKeyBundleRef? = null
-  @Field var remoteAddress: ProtocolAddressRef? = null
-  @Field var localAddress: ProtocolAddressRef? = null
-  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = null
+// The op boundary: argument Records carry only primitives (Expo Modules on
+// Android converts incoming Records via plain maps, which cannot carry
+// SharedObjects or typed arrays), every byte payload is a positional
+// Uint8Array argument (max 8 args per function — decryptPreKeySignalOp uses
+// all 8), and PreKeyBundle — which has no serialized form in libsignal — is
+// a positional SharedObject. Result Records may carry bytes: the return path
+// converts ByteArray fields correctly on both platforms.
+
+class SessionOpConfig : Record {
+  @Field var remoteName: String = ""
+  @Field var remoteDeviceId: Int = 0
+  @Field var localName: String = ""
+  @Field var localDeviceId: Int = 0
   @Field var ourRegistrationId: Int = 0
-  @Field var existingSession: SessionRecordRef? = null
-  @Field var existingRemoteIdentity: PublicIdentityKeyRef? = null
   @Field var nowMs: Double = 0.0
 }
 
 class ProcessPreKeyBundleResult : Record {
-  @Field var newSession: SessionRecordRef? = null
+  @Field var newSession: ByteArray = ByteArray(0)
   @Field var identityChange: String = "newOrUnchanged"
-  @Field var trustedRemoteIdentity: PublicIdentityKeyRef? = null
+  @Field var trustedRemoteIdentity: ByteArray = ByteArray(0)
+}
+
+class EncryptResult : Record {
+  @Field var messageType: String = ""
+  @Field var preKeySignalMessage: ByteArray? = null
+  @Field var signalMessage: ByteArray? = null
+  @Field var newSession: ByteArray = ByteArray(0)
+  @Field var identityChange: String? = null
+}
+
+class DecryptPreKeySignalResult : Record {
+  @Field var plaintext: ByteArray = ByteArray(0)
+  @Field var newSession: ByteArray = ByteArray(0)
+  @Field var identityChange: String? = null
+  @Field var consumedPreKeyId: Int? = null
+  @Field var kyberPreKeyId: Int = 0
+}
+
+class DecryptSignalResult : Record {
+  @Field var plaintext: ByteArray = ByteArray(0)
+  @Field var newSession: ByteArray = ByteArray(0)
+  @Field var identityChange: String? = null
+}
+
+internal class ParsedSessionOpArgs(
+  val remoteAddress: SignalProtocolAddress,
+  val localAddress: SignalProtocolAddress,
+  val identityKeyPair: SignalIdentityKeyPair,
+  val existingSession: SessionRecord?,
+  val existingRemoteIdentity: IdentityKey?,
+)
+
+internal fun parseSessionOpArgs(
+  config: SessionOpConfig,
+  ourIdentityKeyPair: ByteArray,
+  existingSession: ByteArray?,
+  existingRemoteIdentity: ByteArray?,
+): ParsedSessionOpArgs {
+  return ParsedSessionOpArgs(
+    remoteAddress = SignalProtocolAddress(config.remoteName, config.remoteDeviceId),
+    localAddress = SignalProtocolAddress(config.localName, config.localDeviceId),
+    identityKeyPair = SignalIdentityKeyPair(ourIdentityKeyPair),
+    existingSession = existingSession?.let { SessionRecord(it) },
+    existingRemoteIdentity = existingRemoteIdentity?.let { IdentityKey(it) },
+  )
 }
 
 internal fun seedStore(
-  identity: IdentityKeyPairRef,
+  identity: SignalIdentityKeyPair,
   registrationId: Int,
-  remoteAddress: ProtocolAddressRef? = null,
-  existingSession: SessionRecordRef? = null,
-  existingRemoteIdentity: PublicIdentityKeyRef? = null,
+  remoteAddress: SignalProtocolAddress? = null,
+  existingSession: SessionRecord? = null,
+  existingRemoteIdentity: IdentityKey? = null,
 ): InMemorySignalProtocolStore {
-  val store = InMemorySignalProtocolStore(identity.keyPair, registrationId)
+  val store = InMemorySignalProtocolStore(identity, registrationId)
   if (existingSession != null && remoteAddress != null) {
-    store.storeSession(remoteAddress.address, existingSession.record)
+    store.storeSession(remoteAddress, existingSession)
   }
   if (existingRemoteIdentity != null && remoteAddress != null) {
-    store.saveIdentity(remoteAddress.address, existingRemoteIdentity.key)
+    store.saveIdentity(remoteAddress, existingRemoteIdentity)
   }
   return store
 }
 
 internal fun identityChangeString(
   store: InMemorySignalProtocolStore,
-  remoteAddress: ProtocolAddressRef,
-  existing: PublicIdentityKeyRef?,
+  remoteAddress: SignalProtocolAddress,
+  existing: IdentityKey?,
 ): String {
-  val now = store.getIdentity(remoteAddress.address)
-  if (now != null && existing != null && now == existing.key) {
+  val now = store.getIdentity(remoteAddress)
+  if (now != null && existing != null && now == existing) {
     return "newOrUnchanged"
   }
   return if (existing == null) "newOrUnchanged" else "replacedExisting"
 }
 
-internal fun runProcessPreKeyBundleOp(args: ProcessPreKeyBundleArgs): ProcessPreKeyBundleResult {
-  val bundle = args.bundle ?: throw IllegalArgumentException("bundle required")
-  val remote = args.remoteAddress ?: throw IllegalArgumentException("remoteAddress required")
-  val local = args.localAddress ?: throw IllegalArgumentException("localAddress required")
-  val identity = args.ourIdentityKeyPair ?: throw IllegalArgumentException("ourIdentityKeyPair required")
+internal fun runProcessPreKeyBundleOp(
+  config: SessionOpConfig,
+  bundle: PreKeyBundleRef,
+  ourIdentityKeyPair: ByteArray,
+  existingSession: ByteArray?,
+  existingRemoteIdentity: ByteArray?,
+): ProcessPreKeyBundleResult {
+  val parsed = parseSessionOpArgs(config, ourIdentityKeyPair, existingSession, existingRemoteIdentity)
 
   val store = seedStore(
-    identity = identity,
-    registrationId = args.ourRegistrationId,
-    remoteAddress = remote,
-    existingSession = args.existingSession,
-    existingRemoteIdentity = args.existingRemoteIdentity,
+    identity = parsed.identityKeyPair,
+    registrationId = config.ourRegistrationId,
+    remoteAddress = parsed.remoteAddress,
+    existingSession = parsed.existingSession,
+    existingRemoteIdentity = parsed.existingRemoteIdentity,
   )
 
-  val builder = SessionBuilder(store, store, store, store, remote.address, local.address)
-  builder.process(bundle.bundle, Instant.ofEpochMilli(args.nowMs.toLong()))
+  val builder = SessionBuilder(store, store, store, store, parsed.remoteAddress, parsed.localAddress)
+  builder.process(bundle.bundle, Instant.ofEpochMilli(config.nowMs.toLong()))
 
-  val newSession = store.loadSession(remote.address)
+  val newSession = store.loadSession(parsed.remoteAddress)
     ?: throw IllegalStateException("processPreKeyBundle did not produce a session")
-  val trustedRemote = store.getIdentity(remote.address) ?: bundle.bundle.identityKey
+  val trustedRemote = store.getIdentity(parsed.remoteAddress) ?: bundle.bundle.identityKey
 
   val result = ProcessPreKeyBundleResult()
-  result.newSession = SessionRecordRef(newSession)
-  result.identityChange = identityChangeString(store, remote, args.existingRemoteIdentity)
-  result.trustedRemoteIdentity = PublicIdentityKeyRef(trustedRemote)
+  result.newSession = newSession.serialize()
+  result.identityChange = identityChangeString(store, parsed.remoteAddress, parsed.existingRemoteIdentity)
+  result.trustedRemoteIdentity = trustedRemote.serialize()
   return result
 }
 
-class EncryptArgs : Record {
-  @Field var plaintext: ByteArray = ByteArray(0)
-  @Field var remoteAddress: ProtocolAddressRef? = null
-  @Field var localAddress: ProtocolAddressRef? = null
-  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = null
-  @Field var ourRegistrationId: Int = 0
-  @Field var existingSession: SessionRecordRef? = null
-  @Field var remoteIdentity: PublicIdentityKeyRef? = null
-  @Field var nowMs: Double = 0.0
-}
-
-class EncryptResult : Record {
-  @Field var messageType: String = ""
-  @Field var preKeySignalMessage: PreKeySignalMessageRef? = null
-  @Field var signalMessage: SignalMessageRef? = null
-  @Field var newSession: SessionRecordRef? = null
-  @Field var identityChange: String? = null
-}
-
-internal fun runEncryptOp(args: EncryptArgs): EncryptResult {
-  val remote = args.remoteAddress ?: throw IllegalArgumentException("remoteAddress required")
-  val local = args.localAddress ?: throw IllegalArgumentException("localAddress required")
-  val identity = args.ourIdentityKeyPair ?: throw IllegalArgumentException("ourIdentityKeyPair required")
-  val session = args.existingSession ?: throw IllegalArgumentException("existingSession required")
+internal fun runEncryptOp(
+  config: SessionOpConfig,
+  plaintext: ByteArray,
+  ourIdentityKeyPair: ByteArray,
+  existingSession: ByteArray,
+  remoteIdentity: ByteArray?,
+): EncryptResult {
+  val parsed = parseSessionOpArgs(config, ourIdentityKeyPair, existingSession, remoteIdentity)
 
   val store = seedStore(
-    identity = identity,
-    registrationId = args.ourRegistrationId,
-    remoteAddress = remote,
-    existingSession = session,
-    existingRemoteIdentity = args.remoteIdentity,
+    identity = parsed.identityKeyPair,
+    registrationId = config.ourRegistrationId,
+    remoteAddress = parsed.remoteAddress,
+    existingSession = parsed.existingSession,
+    existingRemoteIdentity = parsed.existingRemoteIdentity,
   )
 
-  val cipher = SessionCipher(store, store, store, store, store, remote.address, local.address)
-  val ciphertext = cipher.encrypt(args.plaintext, Instant.ofEpochMilli(args.nowMs.toLong()))
+  // Note the upstream asymmetry: SessionBuilder's constructor takes
+  // (remoteAddress, localAddress) but SessionCipher's takes
+  // (localAddress, remoteAddress).
+  val cipher = SessionCipher(store, store, store, store, store, parsed.localAddress, parsed.remoteAddress)
+  val ciphertext = cipher.encrypt(plaintext, Instant.ofEpochMilli(config.nowMs.toLong()))
 
-  val newSession = store.loadSession(remote.address)
+  val newSession = store.loadSession(parsed.remoteAddress)
     ?: throw IllegalStateException("encryptOp produced no session")
 
   val result = EncryptResult()
-  result.newSession = SessionRecordRef(newSession)
-  result.identityChange = if (args.remoteIdentity == null) null else "newOrUnchanged"
+  result.newSession = newSession.serialize()
+  result.identityChange = if (parsed.existingRemoteIdentity == null) null else "newOrUnchanged"
 
   when (ciphertext.type) {
     CiphertextMessage.PREKEY_TYPE -> {
       result.messageType = "preKeySignal"
-      result.preKeySignalMessage = PreKeySignalMessageRef(PreKeySignalMessage(ciphertext.serialize()))
+      result.preKeySignalMessage = ciphertext.serialize()
     }
     CiphertextMessage.WHISPER_TYPE -> {
       result.messageType = "signal"
-      result.signalMessage = SignalMessageRef(SignalMessage(ciphertext.serialize()))
+      result.signalMessage = ciphertext.serialize()
     }
     else -> throw IllegalStateException("encryptOp produced unexpected ciphertext type ${ciphertext.type}")
   }
   return result
 }
 
-class DecryptPreKeySignalArgs : Record {
-  @Field var message: PreKeySignalMessageRef? = null
-  @Field var remoteAddress: ProtocolAddressRef? = null
-  @Field var localAddress: ProtocolAddressRef? = null
-  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = null
-  @Field var ourRegistrationId: Int = 0
-  @Field var existingSession: SessionRecordRef? = null
-  @Field var existingRemoteIdentity: PublicIdentityKeyRef? = null
-  @Field var preKey: PreKeyRecordRef? = null
-  @Field var signedPreKey: SignedPreKeyRecordRef? = null
-  @Field var kyberPreKey: KyberPreKeyRecordRef? = null
-}
+internal fun runDecryptPreKeySignalOp(
+  config: SessionOpConfig,
+  message: ByteArray,
+  ourIdentityKeyPair: ByteArray,
+  existingSession: ByteArray?,
+  existingRemoteIdentity: ByteArray?,
+  preKey: ByteArray?,
+  signedPreKey: ByteArray,
+  kyberPreKey: ByteArray,
+): DecryptPreKeySignalResult {
+  val parsed = parseSessionOpArgs(config, ourIdentityKeyPair, existingSession, existingRemoteIdentity)
 
-class DecryptPreKeySignalResult : Record {
-  @Field var plaintext: ByteArray = ByteArray(0)
-  @Field var newSession: SessionRecordRef? = null
-  @Field var identityChange: String? = null
-  @Field var consumedPreKeyId: Int? = null
-  @Field var kyberPreKeyId: Int = 0
-}
-
-internal fun runDecryptPreKeySignalOp(args: DecryptPreKeySignalArgs): DecryptPreKeySignalResult {
-  val msg = args.message ?: throw IllegalArgumentException("message required")
-  val remote = args.remoteAddress ?: throw IllegalArgumentException("remoteAddress required")
-  val local = args.localAddress ?: throw IllegalArgumentException("localAddress required")
-  val identity = args.ourIdentityKeyPair ?: throw IllegalArgumentException("ourIdentityKeyPair required")
-  val signedPreKey = args.signedPreKey ?: throw IllegalArgumentException("signedPreKey required")
-  val kyberPreKey = args.kyberPreKey ?: throw IllegalArgumentException("kyberPreKey required")
+  val msg = PreKeySignalMessage(message)
+  val parsedSignedPreKey = SignedPreKeyRecord(signedPreKey)
+  val parsedKyberPreKey = KyberPreKeyRecord(kyberPreKey)
 
   val store = seedStore(
-    identity = identity,
-    registrationId = args.ourRegistrationId,
-    remoteAddress = remote,
-    existingSession = args.existingSession,
-    existingRemoteIdentity = args.existingRemoteIdentity,
+    identity = parsed.identityKeyPair,
+    registrationId = config.ourRegistrationId,
+    remoteAddress = parsed.remoteAddress,
+    existingSession = parsed.existingSession,
+    existingRemoteIdentity = parsed.existingRemoteIdentity,
   )
 
-  args.preKey?.let { store.storePreKey(it.record.id, it.record) }
-  store.storeSignedPreKey(signedPreKey.record.id, signedPreKey.record)
-  store.storeKyberPreKey(kyberPreKey.record.id, kyberPreKey.record)
+  preKey?.let {
+    val parsedPreKey = PreKeyRecord(it)
+    store.storePreKey(parsedPreKey.id, parsedPreKey)
+  }
+  store.storeSignedPreKey(parsedSignedPreKey.id, parsedSignedPreKey)
+  store.storeKyberPreKey(parsedKyberPreKey.id, parsedKyberPreKey)
 
-  val cipher = SessionCipher(store, store, store, store, store, remote.address, local.address)
-  val plaintext = cipher.decrypt(msg.message)
+  // Note the upstream asymmetry: SessionBuilder's constructor takes
+  // (remoteAddress, localAddress) but SessionCipher's takes
+  // (localAddress, remoteAddress).
+  val cipher = SessionCipher(store, store, store, store, store, parsed.localAddress, parsed.remoteAddress)
+  val plaintext = cipher.decrypt(msg)
 
-  val newSession = store.loadSession(remote.address)
+  val newSession = store.loadSession(parsed.remoteAddress)
     ?: throw IllegalStateException("decryptPreKeySignalOp produced no session")
 
-  val msgPreKeyId = msg.message.preKeyId
+  val msgPreKeyId = msg.preKeyId
   val consumed = if (msgPreKeyId.isPresent) msgPreKeyId.get() else null
 
   val result = DecryptPreKeySignalResult()
   result.plaintext = plaintext
-  result.newSession = SessionRecordRef(newSession)
-  result.identityChange = identityChangeString(store, remote, args.existingRemoteIdentity)
+  result.newSession = newSession.serialize()
+  result.identityChange = identityChangeString(store, parsed.remoteAddress, parsed.existingRemoteIdentity)
   result.consumedPreKeyId = consumed
-  result.kyberPreKeyId = kyberPreKey.record.id
+  result.kyberPreKeyId = parsedKyberPreKey.id
   return result
 }
 
-class DecryptSignalArgs : Record {
-  @Field var message: SignalMessageRef? = null
-  @Field var remoteAddress: ProtocolAddressRef? = null
-  @Field var localAddress: ProtocolAddressRef? = null
-  @Field var ourIdentityKeyPair: IdentityKeyPairRef? = null
-  @Field var ourRegistrationId: Int = 0
-  @Field var existingSession: SessionRecordRef? = null
-  @Field var remoteIdentity: PublicIdentityKeyRef? = null
-}
+internal fun runDecryptSignalOp(
+  config: SessionOpConfig,
+  message: ByteArray,
+  ourIdentityKeyPair: ByteArray,
+  existingSession: ByteArray,
+  remoteIdentity: ByteArray?,
+): DecryptSignalResult {
+  val parsed = parseSessionOpArgs(config, ourIdentityKeyPair, existingSession, remoteIdentity)
 
-class DecryptSignalResult : Record {
-  @Field var plaintext: ByteArray = ByteArray(0)
-  @Field var newSession: SessionRecordRef? = null
-  @Field var identityChange: String? = null
-}
-
-internal fun runDecryptSignalOp(args: DecryptSignalArgs): DecryptSignalResult {
-  val msg = args.message ?: throw IllegalArgumentException("message required")
-  val remote = args.remoteAddress ?: throw IllegalArgumentException("remoteAddress required")
-  val local = args.localAddress ?: throw IllegalArgumentException("localAddress required")
-  val identity = args.ourIdentityKeyPair ?: throw IllegalArgumentException("ourIdentityKeyPair required")
-  val session = args.existingSession ?: throw IllegalArgumentException("existingSession required")
+  val msg = SignalMessage(message)
 
   val store = seedStore(
-    identity = identity,
-    registrationId = args.ourRegistrationId,
-    remoteAddress = remote,
-    existingSession = session,
-    existingRemoteIdentity = args.remoteIdentity,
+    identity = parsed.identityKeyPair,
+    registrationId = config.ourRegistrationId,
+    remoteAddress = parsed.remoteAddress,
+    existingSession = parsed.existingSession,
+    existingRemoteIdentity = parsed.existingRemoteIdentity,
   )
 
-  val cipher = SessionCipher(store, store, store, store, store, remote.address, local.address)
-  val plaintext = cipher.decrypt(msg.message)
+  // Note the upstream asymmetry: SessionBuilder's constructor takes
+  // (remoteAddress, localAddress) but SessionCipher's takes
+  // (localAddress, remoteAddress).
+  val cipher = SessionCipher(store, store, store, store, store, parsed.localAddress, parsed.remoteAddress)
+  val plaintext = cipher.decrypt(msg)
 
-  val newSession = store.loadSession(remote.address)
+  val newSession = store.loadSession(parsed.remoteAddress)
     ?: throw IllegalStateException("decryptSignalOp produced no session")
 
   val result = DecryptSignalResult()
   result.plaintext = plaintext
-  result.newSession = SessionRecordRef(newSession)
-  result.identityChange = identityChangeString(store, remote, args.remoteIdentity)
+  result.newSession = newSession.serialize()
+  result.identityChange = identityChangeString(store, parsed.remoteAddress, parsed.existingRemoteIdentity)
   return result
 }

@@ -45,7 +45,23 @@ export class PreKeyBundle {
         'PreKeyBundle: preKeyId and preKeyPublic must both be present or both be absent',
       )
     }
-    const ref = (await NativeModule.createPreKeyBundle(args)) as PreKeyBundleRef
+    // Keys and signatures cross the boundary as positional byte arguments —
+    // Records cannot carry SharedObjects or typed arrays on Android.
+    const ref = (await NativeModule.createPreKeyBundle(
+      {
+        registrationId: args.registrationId,
+        deviceId: args.deviceId,
+        signedPreKeyId: args.signedPreKeyId,
+        kyberPreKeyId: args.kyberPreKeyId,
+        preKeyId: args.preKeyId ?? null,
+      },
+      args.identityKey.serialize(),
+      args.signedPreKeyPublic.serialize(),
+      args.signedPreKeySignature,
+      args.kyberPreKeyPublic,
+      args.kyberPreKeySignature,
+      args.preKeyPublic !== undefined ? args.preKeyPublic.serialize() : null,
+    )) as PreKeyBundleRef
     return new PreKeyBundle(ref)
   }
 

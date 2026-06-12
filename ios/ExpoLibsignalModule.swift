@@ -2,18 +2,15 @@ import Foundation
 import ExpoModulesCore
 import LibSignalClient
 
+// Only primitive fields — incoming Records cannot carry SharedObjects or
+// typed arrays on Android, so key/signature bytes are positional arguments
+// (see the note in SessionOps.swift).
 struct PreKeyBundleArgs: Record {
   @Field var registrationId: UInt32 = 0
   @Field var deviceId: UInt32 = 0
-  @Field var identityKey: PublicIdentityKeyRef? = nil
   @Field var signedPreKeyId: UInt32 = 0
-  @Field var signedPreKeyPublic: PublicKeyRef? = nil
-  @Field var signedPreKeySignature: Data = Data()
   @Field var kyberPreKeyId: UInt32 = 0
-  @Field var kyberPreKeyPublic: Data = Data()
-  @Field var kyberPreKeySignature: Data = Data()
   @Field var preKeyId: UInt32? = nil
-  @Field var preKeyPublic: PublicKeyRef? = nil
 }
 
 public final class ExpoLibsignalModule: Module {
@@ -50,6 +47,15 @@ public final class ExpoLibsignalModule: Module {
 
       Function("privateKey") { (ref: IdentityKeyPairRef) -> PrivateKeyRef in
         return PrivateKeyRef(key: ref.keyPair.privateKey)
+      }
+    }
+
+    AsyncFunction("deserializeIdentityKey") { (bytes: Data) -> PublicIdentityKeyRef in
+      do {
+        let key = try IdentityKey(bytes: bytes)
+        return PublicIdentityKeyRef(key: key)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
       }
     }
 
@@ -208,41 +214,37 @@ public final class ExpoLibsignalModule: Module {
       }
     }
 
-    AsyncFunction("createPreKeyBundle") { (args: PreKeyBundleArgs) -> PreKeyBundleRef in
+    AsyncFunction("createPreKeyBundle") { (args: PreKeyBundleArgs, identityKeyBytes: Data, signedPreKeyPublicBytes: Data, signedPreKeySignature: Data, kyberPreKeyPublicBytes: Data, kyberPreKeySignature: Data, preKeyPublicBytes: Data?) -> PreKeyBundleRef in
       do {
-        guard let identityKeyRef = args.identityKey else {
-          throw Exception(name: "LibsignalError", description: "identityKey is required")
-        }
-        guard let signedPreKeyPublicRef = args.signedPreKeyPublic else {
-          throw Exception(name: "LibsignalError", description: "signedPreKeyPublic is required")
-        }
-        let kyberPub = try KEMPublicKey(args.kyberPreKeyPublic)
+        let identityKey = try IdentityKey(bytes: identityKeyBytes)
+        let signedPreKeyPublic = try PublicKey(signedPreKeyPublicBytes)
+        let kyberPub = try KEMPublicKey(kyberPreKeyPublicBytes)
         let bundle: PreKeyBundle
-        if let preKeyId = args.preKeyId, let preKeyPublicRef = args.preKeyPublic {
+        if let preKeyId = args.preKeyId, let preKeyPublicData = preKeyPublicBytes {
           bundle = try PreKeyBundle(
             registrationId: args.registrationId,
             deviceId: args.deviceId,
             prekeyId: preKeyId,
-            prekey: preKeyPublicRef.key,
+            prekey: try PublicKey(preKeyPublicData),
             signedPrekeyId: args.signedPreKeyId,
-            signedPrekey: signedPreKeyPublicRef.key,
-            signedPrekeySignature: args.signedPreKeySignature,
-            identity: identityKeyRef.key,
+            signedPrekey: signedPreKeyPublic,
+            signedPrekeySignature: signedPreKeySignature,
+            identity: identityKey,
             kyberPrekeyId: args.kyberPreKeyId,
             kyberPrekey: kyberPub,
-            kyberPrekeySignature: args.kyberPreKeySignature
+            kyberPrekeySignature: kyberPreKeySignature
           )
         } else {
           bundle = try PreKeyBundle(
             registrationId: args.registrationId,
             deviceId: args.deviceId,
             signedPrekeyId: args.signedPreKeyId,
-            signedPrekey: signedPreKeyPublicRef.key,
-            signedPrekeySignature: args.signedPreKeySignature,
-            identity: identityKeyRef.key,
+            signedPrekey: signedPreKeyPublic,
+            signedPrekeySignature: signedPreKeySignature,
+            identity: identityKey,
             kyberPrekeyId: args.kyberPreKeyId,
             kyberPrekey: kyberPub,
-            kyberPrekeySignature: args.kyberPreKeySignature
+            kyberPrekeySignature: kyberPreKeySignature
           )
         }
         return PreKeyBundleRef(bundle: bundle)
@@ -323,33 +325,60 @@ public final class ExpoLibsignalModule: Module {
       }
     }
 
-    AsyncFunction("processPreKeyBundleOp") { (args: ProcessPreKeyBundleArgs) -> ProcessPreKeyBundleResult in
+    AsyncFunction("processPreKeyBundleOp") { (config: SessionOpConfig, bundle: PreKeyBundleRef, ourIdentityKeyPair: Data, existingSession: Data?, existingRemoteIdentity: Data?) -> ProcessPreKeyBundleResult in
       do {
-        return try runProcessPreKeyBundleOp(args)
+        return try runProcessPreKeyBundleOp(
+          config: config,
+          bundle: bundle,
+          ourIdentityKeyPair: ourIdentityKeyPair,
+          existingSession: existingSession,
+          existingRemoteIdentity: existingRemoteIdentity
+        )
       } catch {
         throw Exception(name: "LibsignalError", description: "\(error)")
       }
     }
 
-    AsyncFunction("encryptOp") { (args: EncryptArgs) -> EncryptResult in
+    AsyncFunction("encryptOp") { (config: SessionOpConfig, plaintext: Data, ourIdentityKeyPair: Data, existingSession: Data, remoteIdentity: Data?) -> EncryptResult in
       do {
-        return try runEncryptOp(args)
+        return try runEncryptOp(
+          config: config,
+          plaintext: plaintext,
+          ourIdentityKeyPair: ourIdentityKeyPair,
+          existingSession: existingSession,
+          remoteIdentity: remoteIdentity
+        )
       } catch {
         throw Exception(name: "LibsignalError", description: "\(error)")
       }
     }
 
-    AsyncFunction("decryptPreKeySignalOp") { (args: DecryptPreKeySignalArgs) -> DecryptPreKeySignalResult in
+    AsyncFunction("decryptPreKeySignalOp") { (config: SessionOpConfig, message: Data, ourIdentityKeyPair: Data, existingSession: Data?, existingRemoteIdentity: Data?, preKey: Data?, signedPreKey: Data, kyberPreKey: Data) -> DecryptPreKeySignalResult in
       do {
-        return try runDecryptPreKeySignalOp(args)
+        return try runDecryptPreKeySignalOp(
+          config: config,
+          message: message,
+          ourIdentityKeyPair: ourIdentityKeyPair,
+          existingSession: existingSession,
+          existingRemoteIdentity: existingRemoteIdentity,
+          preKey: preKey,
+          signedPreKey: signedPreKey,
+          kyberPreKey: kyberPreKey
+        )
       } catch {
         throw Exception(name: "LibsignalError", description: "\(error)")
       }
     }
 
-    AsyncFunction("decryptSignalOp") { (args: DecryptSignalArgs) -> DecryptSignalResult in
+    AsyncFunction("decryptSignalOp") { (config: SessionOpConfig, message: Data, ourIdentityKeyPair: Data, existingSession: Data, remoteIdentity: Data?) -> DecryptSignalResult in
       do {
-        return try runDecryptSignalOp(args)
+        return try runDecryptSignalOp(
+          config: config,
+          message: message,
+          ourIdentityKeyPair: ourIdentityKeyPair,
+          existingSession: existingSession,
+          remoteIdentity: remoteIdentity
+        )
       } catch {
         throw Exception(name: "LibsignalError", description: "\(error)")
       }
