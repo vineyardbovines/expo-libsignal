@@ -128,10 +128,18 @@ export default function AliceBobScreen() {
         })
       }
 
+      console.log('[ALICEBOB-SUMMARY]', JSON.stringify({
+        status: results.every((r) => r.ok) ? 'ok' : 'fail',
+        steps: results.map((r) => ({ label: r.label, ok: r.ok, detail: r.detail })),
+      }))
       setSteps(results)
       setStatus(results.every((r) => r.ok) ? 'ok' : 'fail')
     } catch (e) {
       results.push({ label: 'error', detail: String(e), ok: false })
+      console.log('[ALICEBOB-SUMMARY]', JSON.stringify({
+        status: 'fail',
+        steps: results.map((r) => ({ label: r.label, ok: r.ok, detail: r.detail })),
+      }))
       setSteps(results)
       setStatus('fail')
     }
