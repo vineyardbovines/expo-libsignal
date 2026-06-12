@@ -64,6 +64,54 @@ const publicKey = kp.publicKey().serialize()
 const restored = await IdentityKeyPair.deserialize(serialized)
 ```
 
+Build a session and exchange messages:
+
+```typescript
+import {
+  SessionBuilder,
+  SessionCipher,
+  ProtocolAddress,
+  PreKeyBundle,
+} from 'expo-libsignal'
+
+// Alice receives Bob's published PreKeyBundle and establishes a session.
+const bobAddress = await ProtocolAddress.create('bob-user-id', 1)
+const aliceAddress = await ProtocolAddress.create('alice-user-id', 1)
+
+const builder = new SessionBuilder(
+  { sessionStore: alice.sessionStore, identityStore: alice.identityStore },
+  bobAddress,
+  aliceAddress,
+)
+await builder.processPreKeyBundle(bundle)
+
+// Now Alice can encrypt to Bob.
+const cipher = new SessionCipher(
+  {
+    sessionStore: alice.sessionStore,
+    identityStore: alice.identityStore,
+    preKeyStore: alice.preKeyStore,
+    signedPreKeyStore: alice.signedPreKeyStore,
+    kyberPreKeyStore: alice.kyberPreKeyStore,
+  },
+  bobAddress,
+  aliceAddress,
+)
+const ciphertext = await cipher.encrypt(new TextEncoder().encode('hello'))
+
+if (ciphertext.type === 'preKeySignal') {
+  // First message after a session is established. Bob's side calls
+  // SessionCipher.decryptPreKeySignal on receipt.
+} else {
+  // Ongoing ratcheted message. Bob's side calls SessionCipher.decryptSignal.
+}
+```
+
+Store implementations are the consumer's responsibility — implement the
+`SessionStore`, `IdentityKeyStore`, `PreKeyStore`, `SignedPreKeyStore`, and
+`KyberPreKeyStore` interfaces. The default SQLCipher-backed implementations
+ship in a later phase.
+
 Errors come back as typed subclasses of `LibsignalError`:
 
 ```typescript
@@ -90,7 +138,7 @@ try {
 | Phase | Status |
 |---|---|
 | Foundation (identity keys) | ✅ shipped |
-| 1:1 messaging (X3DH, Double Ratchet, PreKey bundles) | pending |
+| 1:1 messaging (X3DH, Double Ratchet, PreKey bundles) | ✅ shipped |
 | Default SQLCipher-backed stores | pending |
 | Groups (Sender Keys), Sealed Sender, Provisioning | pending |
 | Ergonomic `SignalClient` facade, full example playground, npm publishing | pending |
