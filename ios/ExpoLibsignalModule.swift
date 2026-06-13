@@ -353,7 +353,7 @@ public final class ExpoLibsignalModule: Module {
       }
     }
 
-    AsyncFunction("decryptPreKeySignalOp") { (config: SessionOpConfig, message: Data, ourIdentityKeyPair: Data, existingSession: Data?, existingRemoteIdentity: Data?, preKey: Data?, signedPreKey: Data, kyberPreKey: Data) -> DecryptPreKeySignalResult in
+    AsyncFunction("decryptPreKeySignalOp") { (config: SessionOpConfig, message: Data, ourIdentityKeyPair: Data, existingSession: Data?, existingRemoteIdentity: Data?, preKey: Data?, signedPreKey: Data, kyberPreKeys: Data) -> DecryptPreKeySignalResult in
       do {
         return try runDecryptPreKeySignalOp(
           config: config,
@@ -363,7 +363,7 @@ public final class ExpoLibsignalModule: Module {
           existingRemoteIdentity: existingRemoteIdentity,
           preKey: preKey,
           signedPreKey: signedPreKey,
-          kyberPreKey: kyberPreKey
+          kyberPreKeys: kyberPreKeys
         )
       } catch {
         throw Exception(name: "LibsignalError", description: "\(error)")

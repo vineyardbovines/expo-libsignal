@@ -40,7 +40,7 @@ struct DecryptPreKeySignalResult: Record {
   @Field var newSession: Data = Data()
   @Field var identityChange: String? = nil
   @Field var consumedPreKeyId: UInt32? = nil
-  @Field var kyberPreKeyId: UInt32 = 0
+  @Field var kyberPreKeyId: UInt32? = nil
 }
 
 struct DecryptSignalResult: Record {
@@ -90,6 +90,38 @@ func seedStore(
     _ = try store.saveIdentity(ident, for: addr, context: ctx)
   }
   return store
+}
+
+// Captures which kyber prekey libsignal marks used during PQ decrypt — the
+// message does not expose the id in 0.94.4, so this callback is the only
+// place the real id surfaces.
+final class RecordingSignalProtocolStore: InMemorySignalProtocolStore {
+  var usedKyberPreKeyId: UInt32?
+
+  override func markKyberPreKeyUsed(id: UInt32, signedPreKeyId: UInt32, baseKey: PublicKey, context: StoreContext) throws {
+    usedKyberPreKeyId = id
+    try super.markKyberPreKeyUsed(id: id, signedPreKeyId: signedPreKeyId, baseKey: baseKey, context: context)
+  }
+}
+
+// Mirror of src/core/recordList.ts: big-endian u32 length prefix per record.
+func decodeRecordList(_ blob: Data) throws -> [Data] {
+  let bytes = [UInt8](blob)
+  var records: [Data] = []
+  var offset = 0
+  while offset < bytes.count {
+    guard offset + 4 <= bytes.count else {
+      throw Exception(name: "LibsignalError", description: "recordList: truncated length prefix")
+    }
+    let len = (Int(bytes[offset]) << 24) | (Int(bytes[offset + 1]) << 16) | (Int(bytes[offset + 2]) << 8) | Int(bytes[offset + 3])
+    offset += 4
+    guard offset + len <= bytes.count else {
+      throw Exception(name: "LibsignalError", description: "recordList: truncated record")
+    }
+    records.append(Data(bytes[offset..<(offset + len)]))
+    offset += len
+  }
+  return records
 }
 
 func identityChangeString(
@@ -223,7 +255,7 @@ func runDecryptPreKeySignalOp(
   existingRemoteIdentity: Data?,
   preKey: Data?,
   signedPreKey: Data,
-  kyberPreKey: Data
+  kyberPreKeys: Data
 ) throws -> DecryptPreKeySignalResult {
   let parsed = try parseSessionOpArgs(
     config: config,
@@ -234,23 +266,28 @@ func runDecryptPreKeySignalOp(
 
   let parsedMessage = try PreKeySignalMessage(bytes: message)
   let parsedSignedPreKey = try SignedPreKeyRecord(bytes: signedPreKey)
-  let parsedKyberPreKey = try KyberPreKeyRecord(bytes: kyberPreKey)
 
   let ctx = NullContext()
-  let store = try seedStore(
-    identityKeyPair: parsed.identityKeyPair,
-    registrationId: config.ourRegistrationId,
-    remoteAddress: parsed.remoteAddress,
-    existingSession: parsed.existingSession,
-    existingRemoteIdentity: parsed.existingRemoteIdentity
+  let store = RecordingSignalProtocolStore(
+    identity: parsed.identityKeyPair,
+    registrationId: config.ourRegistrationId
   )
+  if let session = parsed.existingSession {
+    try store.storeSession(session, for: parsed.remoteAddress, context: ctx)
+  }
+  if let ident = parsed.existingRemoteIdentity {
+    _ = try store.saveIdentity(ident, for: parsed.remoteAddress, context: ctx)
+  }
 
   if let preKeyData = preKey {
     let parsedPreKey = try PreKeyRecord(bytes: preKeyData)
     try store.storePreKey(parsedPreKey, id: parsedPreKey.id, context: ctx)
   }
   try store.storeSignedPreKey(parsedSignedPreKey, id: parsedSignedPreKey.id, context: ctx)
-  try store.storeKyberPreKey(parsedKyberPreKey, id: parsedKyberPreKey.id, context: ctx)
+  for recordBytes in try decodeRecordList(kyberPreKeys) {
+    let record = try KyberPreKeyRecord(bytes: recordBytes)
+    try store.storeKyberPreKey(record, id: record.id, context: ctx)
+  }
 
   // Read consumedPreKeyId before decrypt (the message carries it; libsignal removes the record during decrypt).
   let consumedPreKeyId: UInt32? = try parsedMessage.preKeyId()
@@ -280,7 +317,7 @@ func runDecryptPreKeySignalOp(
     existing: parsed.existingRemoteIdentity
   )
   result.consumedPreKeyId = consumedPreKeyId
-  result.kyberPreKeyId = parsedKyberPreKey.id
+  result.kyberPreKeyId = store.usedKyberPreKeyId
   return result
 }
 
