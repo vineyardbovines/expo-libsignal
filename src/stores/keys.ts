@@ -4,8 +4,8 @@ import { requireSecureStore } from './optionalRequire'
 
 export interface ResolveKeyOptions {
   keyAlias: string
-  keyProvider?: () => Promise<string>
-  keychainAccessible?: number
+  keyProvider?: (() => Promise<string>) | undefined
+  keychainAccessible?: number | undefined
 }
 
 // The SQLCipher key: 32 random bytes from the OS CSPRNG, hex-encoded, stored

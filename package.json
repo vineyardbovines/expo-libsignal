@@ -4,6 +4,18 @@
   "description": "Expo Module wrapping signalapp/libsignal — Signal Protocol cryptography for React Native.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./build/index.d.ts",
+      "default": "./build/index.js"
+    },
+    "./stores": {
+      "types": "./build/stores/index.d.ts",
+      "default": "./build/stores/index.js"
+    },
+    "./app.plugin.js": "./app.plugin.js",
+    "./package.json": "./package.json"
+  },
   "scripts": {
     "build": "expo-module build && tsc -p plugin",
     "clean": "expo-module clean && rm -rf plugin/build",
@@ -47,14 +59,25 @@
     "typescript": "~6.0.3"
   },
   "peerDependencies": {
+    "@op-engineering/op-sqlite": "*",
     "expo": ">=55.0.0",
     "expo-secure-store": "*",
     "react": "*",
     "react-native": "*"
   },
+  "peerDependenciesMeta": {
+    "@op-engineering/op-sqlite": {
+      "optional": true
+    },
+    "expo-secure-store": {
+      "optional": true
+    }
+  },
   "files": [
     "app.plugin.js",
     "build",
+    "stores.js",
+    "stores.d.ts",
     "ios",
     "android",
     "plugin/build",
