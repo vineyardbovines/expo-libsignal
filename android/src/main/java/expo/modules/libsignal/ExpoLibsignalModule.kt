@@ -51,6 +51,16 @@ class ExpoLibsignalModule : Module() {
       }
     }
 
+    // OS CSPRNG, used by the SQLCipher store layer for database keys.
+    AsyncFunction("generateRandomBytes") Coroutine { length: Int ->
+      if (length < 1 || length > 1024) {
+        throw IllegalArgumentException("generateRandomBytes: length must be 1..1024, got $length")
+      }
+      val bytes = ByteArray(length)
+      java.security.SecureRandom().nextBytes(bytes)
+      bytes
+    }
+
     // Instance methods. The first parameter (typed as the SharedObject) is
     // auto-bound to `this` on the JS side.
     //

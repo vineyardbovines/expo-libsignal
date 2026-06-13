@@ -1,4 +1,5 @@
 import Foundation
+import Security
 import ExpoModulesCore
 import LibSignalClient
 
@@ -32,6 +33,19 @@ public final class ExpoLibsignalModule: Module {
       } catch {
         throw Exception(name: "LibsignalError", description: "\(error)")
       }
+    }
+
+    // OS CSPRNG, used by the SQLCipher store layer for database keys.
+    AsyncFunction("generateRandomBytes") { (length: Int) -> Data in
+      guard length > 0 && length <= 1024 else {
+        throw Exception(name: "LibsignalError", description: "generateRandomBytes: length must be 1...1024, got \(length)")
+      }
+      var bytes = [UInt8](repeating: 0, count: length)
+      let status = SecRandomCopyBytes(kSecRandomDefault, length, &bytes)
+      guard status == errSecSuccess else {
+        throw Exception(name: "LibsignalError", description: "SecRandomCopyBytes failed with status \(status)")
+      }
+      return Data(bytes)
     }
 
     // Instance methods. The first parameter (typed as the SharedObject) is
