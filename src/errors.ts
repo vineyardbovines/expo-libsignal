@@ -41,6 +41,22 @@ export class DuplicateMessageError extends LibsignalError {
   }
 }
 
+// Store-layer errors (JS-origin; never produced by fromNative).
+
+export class StoreError extends LibsignalError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'StoreError'
+  }
+}
+
+export class SchemaTooNewError extends StoreError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SchemaTooNewError'
+  }
+}
+
 export interface NativeErrorPayload {
   kind: string
   message: string
