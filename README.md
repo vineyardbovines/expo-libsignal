@@ -107,10 +107,60 @@ if (ciphertext.type === 'preKeySignal') {
 }
 ```
 
-Store implementations are the consumer's responsibility — implement the
-`SessionStore`, `IdentityKeyStore`, `PreKeyStore`, `SignedPreKeyStore`, and
-`KyberPreKeyStore` interfaces. The default SQLCipher-backed implementations
-ship in a later phase.
+Store implementations are pluggable. Implement the `SessionStore`,
+`IdentityKeyStore`, `PreKeyStore`, `SignedPreKeyStore`, and `KyberPreKeyStore`
+interfaces yourself, or use the default SQLCipher-backed store:
+
+```typescript
+import { SQLCipherProtocolStore } from 'expo-libsignal/stores'
+
+const store = await SQLCipherProtocolStore.open()
+if (!(await store.hasLocalIdentity())) {
+  await store.initializeLocalIdentity(await IdentityKeyPair.generate(), registrationId)
+}
+
+// One object implements all five interfaces.
+const cipher = new SessionCipher(
+  {
+    sessionStore: store,
+    identityStore: store,
+    preKeyStore: store,
+    signedPreKeyStore: store,
+    kyberPreKeyStore: store,
+  },
+  remoteAddress,
+  localAddress,
+)
+
+// Wrap each protocol operation so its store reads/writes are atomic.
+const ciphertext = await store.runExclusive(() => cipher.encrypt(plaintext))
+```
+
+The default store requires two optional peer dependencies:
+
+```bash
+bunx expo install expo-secure-store
+bun add @op-engineering/op-sqlite
+```
+
+and SQLCipher enabled in **your app's** package.json (op-sqlite reads this
+from the app root; a library cannot set it):
+
+```json
+"op-sqlite": { "sqlcipher": true }
+```
+
+The store refuses to open if op-sqlite was built without SQLCipher. The
+database key is 32 random bytes, hex-encoded, kept in the iOS Keychain /
+Android Keystore via expo-secure-store (`WHEN_UNLOCKED_THIS_DEVICE_ONLY` by
+default; override `keychainAccessible`, or supply your own `keyProvider`).
+Schema migrations are forward-only; during 0.x a release may change the
+schema without a data migration path, and the release notes will say so.
+
+**Breaking change (unreleased 0.x):** `KyberPreKeyStore` gained
+`loadKyberPreKeys(): Promise<KyberPreKeyRecord[]>`. libsignal 0.94.4 does not
+expose the kyber prekey id on `PreKeySignalMessage`, so decryption seeds all
+stored kyber prekeys and reports back the id actually used.
 
 Errors come back as typed subclasses of `LibsignalError`:
 
