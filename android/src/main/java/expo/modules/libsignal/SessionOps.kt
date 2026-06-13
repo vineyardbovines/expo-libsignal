@@ -8,6 +8,7 @@ import org.signal.libsignal.protocol.IdentityKeyPair as SignalIdentityKeyPair
 import org.signal.libsignal.protocol.SessionBuilder
 import org.signal.libsignal.protocol.SessionCipher
 import org.signal.libsignal.protocol.SignalProtocolAddress
+import org.signal.libsignal.protocol.ecc.ECPublicKey
 import org.signal.libsignal.protocol.message.CiphertextMessage
 import org.signal.libsignal.protocol.message.PreKeySignalMessage
 import org.signal.libsignal.protocol.message.SignalMessage
@@ -53,7 +54,7 @@ class DecryptPreKeySignalResult : Record {
   @Field var newSession: ByteArray = ByteArray(0)
   @Field var identityChange: String? = null
   @Field var consumedPreKeyId: Int? = null
-  @Field var kyberPreKeyId: Int = 0
+  @Field var kyberPreKeyId: Int? = null
 }
 
 class DecryptSignalResult : Record {
@@ -100,6 +101,39 @@ internal fun seedStore(
     store.saveIdentity(remoteAddress, existingRemoteIdentity)
   }
   return store
+}
+
+// Captures which kyber prekey libsignal marks used during PQ decrypt — the
+// message does not expose the id in 0.94.4, so this callback is the only
+// place the real id surfaces.
+internal class RecordingSignalProtocolStore(
+  identity: SignalIdentityKeyPair,
+  registrationId: Int,
+) : InMemorySignalProtocolStore(identity, registrationId) {
+  var usedKyberPreKeyId: Int? = null
+
+  override fun markKyberPreKeyUsed(kyberPreKeyId: Int, signedPreKeyId: Int, baseKey: ECPublicKey) {
+    usedKyberPreKeyId = kyberPreKeyId
+    super.markKyberPreKeyUsed(kyberPreKeyId, signedPreKeyId, baseKey)
+  }
+}
+
+// Mirror of src/core/recordList.ts: big-endian u32 length prefix per record.
+internal fun decodeRecordList(blob: ByteArray): List<ByteArray> {
+  val records = mutableListOf<ByteArray>()
+  var offset = 0
+  while (offset < blob.size) {
+    if (offset + 4 > blob.size) throw IllegalArgumentException("recordList: truncated length prefix")
+    val len = ((blob[offset].toInt() and 0xff) shl 24) or
+      ((blob[offset + 1].toInt() and 0xff) shl 16) or
+      ((blob[offset + 2].toInt() and 0xff) shl 8) or
+      (blob[offset + 3].toInt() and 0xff)
+    offset += 4
+    if (offset + len > blob.size) throw IllegalArgumentException("recordList: truncated record")
+    records.add(blob.copyOfRange(offset, offset + len))
+    offset += len
+  }
+  return records
 }
 
 internal fun identityChangeString(
@@ -197,28 +231,26 @@ internal fun runDecryptPreKeySignalOp(
   existingRemoteIdentity: ByteArray?,
   preKey: ByteArray?,
   signedPreKey: ByteArray,
-  kyberPreKey: ByteArray,
+  kyberPreKeys: ByteArray,
 ): DecryptPreKeySignalResult {
   val parsed = parseSessionOpArgs(config, ourIdentityKeyPair, existingSession, existingRemoteIdentity)
 
   val msg = PreKeySignalMessage(message)
   val parsedSignedPreKey = SignedPreKeyRecord(signedPreKey)
-  val parsedKyberPreKey = KyberPreKeyRecord(kyberPreKey)
 
-  val store = seedStore(
-    identity = parsed.identityKeyPair,
-    registrationId = config.ourRegistrationId,
-    remoteAddress = parsed.remoteAddress,
-    existingSession = parsed.existingSession,
-    existingRemoteIdentity = parsed.existingRemoteIdentity,
-  )
+  val store = RecordingSignalProtocolStore(parsed.identityKeyPair, config.ourRegistrationId)
+  parsed.existingSession?.let { store.storeSession(parsed.remoteAddress, it) }
+  parsed.existingRemoteIdentity?.let { store.saveIdentity(parsed.remoteAddress, it) }
 
   preKey?.let {
     val parsedPreKey = PreKeyRecord(it)
     store.storePreKey(parsedPreKey.id, parsedPreKey)
   }
   store.storeSignedPreKey(parsedSignedPreKey.id, parsedSignedPreKey)
-  store.storeKyberPreKey(parsedKyberPreKey.id, parsedKyberPreKey)
+  for (recordBytes in decodeRecordList(kyberPreKeys)) {
+    val record = KyberPreKeyRecord(recordBytes)
+    store.storeKyberPreKey(record.id, record)
+  }
 
   // Note the upstream asymmetry: SessionBuilder's constructor takes
   // (remoteAddress, localAddress) but SessionCipher's takes
@@ -237,7 +269,7 @@ internal fun runDecryptPreKeySignalOp(
   result.newSession = newSession.serialize()
   result.identityChange = identityChangeString(store, parsed.remoteAddress, parsed.existingRemoteIdentity)
   result.consumedPreKeyId = consumed
-  result.kyberPreKeyId = parsedKyberPreKey.id
+  result.kyberPreKeyId = store.usedKyberPreKeyId
   return result
 }
 

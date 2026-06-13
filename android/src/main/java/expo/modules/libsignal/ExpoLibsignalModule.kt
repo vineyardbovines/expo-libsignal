@@ -353,9 +353,9 @@ class ExpoLibsignalModule : Module() {
       }
     }
 
-    AsyncFunction("decryptPreKeySignalOp") Coroutine { config: SessionOpConfig, message: ByteArray, ourIdentityKeyPair: ByteArray, existingSession: ByteArray?, existingRemoteIdentity: ByteArray?, preKey: ByteArray?, signedPreKey: ByteArray, kyberPreKey: ByteArray ->
+    AsyncFunction("decryptPreKeySignalOp") Coroutine { config: SessionOpConfig, message: ByteArray, ourIdentityKeyPair: ByteArray, existingSession: ByteArray?, existingRemoteIdentity: ByteArray?, preKey: ByteArray?, signedPreKey: ByteArray, kyberPreKeys: ByteArray ->
       try {
-        runDecryptPreKeySignalOp(config, message, ourIdentityKeyPair, existingSession, existingRemoteIdentity, preKey, signedPreKey, kyberPreKey)
+        runDecryptPreKeySignalOp(config, message, ourIdentityKeyPair, existingSession, existingRemoteIdentity, preKey, signedPreKey, kyberPreKeys)
       } catch (e: Throwable) {
         throw RuntimeException(mapSignalError(e).message)
       }
