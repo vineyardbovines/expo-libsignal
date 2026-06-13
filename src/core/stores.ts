@@ -38,6 +38,13 @@ export interface SignedPreKeyStore {
 
 export interface KyberPreKeyStore {
   loadKyberPreKey(id: number): Promise<KyberPreKeyRecord>
+  /**
+   * Return every stored kyber prekey. libsignal 0.94.4 does not expose the
+   * kyber prekey id on PreKeySignalMessage, so decryptPreKeySignal seeds the
+   * native op with all of them and libsignal resolves the id internally.
+   * Matches upstream libsignal-java's KyberPreKeyStore.loadKyberPreKeys().
+   */
+  loadKyberPreKeys(): Promise<KyberPreKeyRecord[]>
   storeKyberPreKey(id: number, record: KyberPreKeyRecord): Promise<void>
   markKyberPreKeyUsed(id: number): Promise<void>
 }

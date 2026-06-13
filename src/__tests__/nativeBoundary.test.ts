@@ -29,6 +29,7 @@ import { PreKeyBundle } from '../core/PreKeyBundle'
 import { PreKeyRecord } from '../core/PreKeyRecord'
 import { ProtocolAddress } from '../core/ProtocolAddress'
 import { PublicKey } from '../core/PublicKey'
+import { encodeRecordList } from '../core/recordList'
 import { SessionBuilder } from '../core/SessionBuilder'
 import { SessionCipher } from '../core/SessionCipher'
 import { SessionRecord } from '../core/SessionRecord'
@@ -45,6 +46,7 @@ const sessionBytes = new Uint8Array([6])
 const preKeyBytes = new Uint8Array([7])
 const signedPreKeyBytes = new Uint8Array([8])
 const kyberPreKeyBytes = new Uint8Array([9])
+const kyberPreKey2Bytes = new Uint8Array([14])
 const messageBytes = new Uint8Array([10])
 const newSessionBytes = new Uint8Array([11])
 const trustedIdentityBytes = new Uint8Array([12])
@@ -64,6 +66,7 @@ const sessionRef = { serialize: () => sessionBytes }
 const preKeyRef = { serialize: () => preKeyBytes }
 const signedPreKeyRef = { serialize: () => signedPreKeyBytes }
 const kyberPreKeyRef = { serialize: () => kyberPreKeyBytes }
+const kyberPreKey2Ref = { serialize: () => kyberPreKey2Bytes }
 const preKeySignalMsgRef = {
   serialize: () => messageBytes,
   preKeyId: () => 100,
@@ -110,6 +113,10 @@ function makeStores(opts: { existingSession?: SessionRecord | null } = {}) {
     },
     kyberPreKeyStore: {
       loadKyberPreKey: jest.fn(async () => new KyberPreKeyRecord(kyberPreKeyRef as never)),
+      loadKyberPreKeys: jest.fn(async () => [
+        new KyberPreKeyRecord(kyberPreKeyRef as never),
+        new KyberPreKeyRecord(kyberPreKey2Ref as never),
+      ]),
       storeKyberPreKey: jest.fn(async () => {}),
       markKyberPreKeyUsed: jest.fn(async () => {}),
     },
@@ -277,10 +284,27 @@ describe('SessionCipher ops', () => {
     expect(identityArg).toBe(remoteIdentityBytes)
     expect(preKeyArg).toBe(preKeyBytes)
     expect(spkArg).toBe(signedPreKeyBytes)
-    expect(kyberArg).toBe(kyberPreKeyBytes)
+    expect(kyberArg).toEqual(encodeRecordList([kyberPreKeyBytes, kyberPreKey2Bytes]))
+    expect(stores.kyberPreKeyStore.loadKyberPreKeys).toHaveBeenCalled()
 
     expect(stores.preKeyStore.removePreKey).toHaveBeenCalledWith(100)
     expect(stores.kyberPreKeyStore.markKyberPreKeyUsed).toHaveBeenCalledWith(200)
+  })
+
+  test('decryptPreKeySignal skips markKyberPreKeyUsed when kyberPreKeyId is null', async () => {
+    const stores = makeStores({ existingSession: new SessionRecord(sessionRef as never) })
+    NativeModule.decryptPreKeySignalOp.mockResolvedValueOnce({
+      plaintext: new Uint8Array([1]),
+      newSession: newSessionBytes,
+      identityChange: null,
+      consumedPreKeyId: null,
+      kyberPreKeyId: null,
+    })
+    await makeCipher(stores).decryptPreKeySignal(
+      new PreKeySignalMessage(preKeySignalMsgRef as never),
+    )
+    expect(stores.kyberPreKeyStore.markKyberPreKeyUsed).not.toHaveBeenCalled()
+    expect(stores.preKeyStore.removePreKey).not.toHaveBeenCalled()
   })
 
   test('decryptSignal sends bytes', async () => {

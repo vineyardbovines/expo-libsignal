@@ -2,6 +2,7 @@ import { NativeModule } from '../ExpoLibsignalModule'
 import { fromNative, SessionNotFoundError } from '../errors'
 import { type CiphertextMessage, PreKeySignalMessage, SignalMessage } from './messages'
 import type { ProtocolAddress } from './ProtocolAddress'
+import { encodeRecordList } from './recordList'
 import { SessionRecord } from './SessionRecord'
 import type {
   IdentityKeyStore,
@@ -102,25 +103,20 @@ export class SessionCipher {
     const preKey = messagePreKeyId === null ? null : await preKeyStore.loadPreKey(messagePreKeyId)
     const signedPreKey = await signedPreKeyStore.loadSignedPreKey(signedPreKeyId)
 
-    // Kyber prekey id isn't exposed on the message in 0.94.4. We load the
-    // single kyber prekey by its id once decrypt returns it. Until then, we
-    // need to seed with all currently-stored kyber prekeys. The simplest
-    // approach: assume the consumer maintains a single active kyber prekey
-    // and surface its id through the store. For now, we load by signedPreKeyId
-    // as a placeholder — the example app's in-memory store maps id 1:1
-    // between signed and kyber prekeys for Phase 2 testing.
-    //
-    // PRODUCTION CONSUMERS: this is one of the asymmetries the kickoff spec
-    // notes — kyber prekey id is internal to the encrypted message. See the
-    // implementation note in the spec, Section 8.
-    const kyberPreKey = await kyberPreKeyStore.loadKyberPreKey(signedPreKeyId)
+    // The kyber prekey id is not exposed on PreKeySignalMessage in libsignal
+    // 0.94.4, so we seed the op with every stored kyber prekey (framed into
+    // one positional blob) and libsignal resolves the id internally. The op
+    // reports back which id it marked used; null means the decrypt completed
+    // without consuming one (e.g. replay against an existing session).
+    const kyberPreKeys = await kyberPreKeyStore.loadKyberPreKeys()
+    const kyberPreKeysBlob = encodeRecordList(kyberPreKeys.map((k) => k.serialize()))
 
     let result: {
       plaintext: Uint8Array
       newSession: Uint8Array
       identityChange: 'newOrUnchanged' | 'replacedExisting' | null
       consumedPreKeyId: number | null
-      kyberPreKeyId: number
+      kyberPreKeyId: number | null
     }
     try {
       result = await NativeModule.decryptPreKeySignalOp(
@@ -131,7 +127,7 @@ export class SessionCipher {
         existingRemoteIdentity ? existingRemoteIdentity.serialize() : null,
         preKey ? preKey.serialize() : null,
         signedPreKey.serialize(),
-        kyberPreKey.serialize(),
+        kyberPreKeysBlob,
       )
     } catch (e) {
       throw rethrowAsLibsignal(e)
@@ -143,7 +139,9 @@ export class SessionCipher {
     if (result.consumedPreKeyId !== null) {
       await preKeyStore.removePreKey(result.consumedPreKeyId)
     }
-    await kyberPreKeyStore.markKyberPreKeyUsed(result.kyberPreKeyId)
+    if (result.kyberPreKeyId !== null) {
+      await kyberPreKeyStore.markKyberPreKeyUsed(result.kyberPreKeyId)
+    }
 
     // Identity is already trusted as a side effect of the decrypt op; we
     // re-save through the JS store so the canonical state is updated.
