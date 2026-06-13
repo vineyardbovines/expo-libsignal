@@ -114,6 +114,10 @@ export class InMemoryProtocolStore
     return r
   }
 
+  async loadKyberPreKeys(): Promise<KyberPreKeyRecord[]> {
+    return [...this.kyberPreKeys.values()]
+  }
+
   async storeKyberPreKey(id: number, record: KyberPreKeyRecord): Promise<void> {
     this.kyberPreKeys.set(id, record)
   }

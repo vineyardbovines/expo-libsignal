@@ -29,15 +29,16 @@ export async function publishPreKeyBundle(
   persona: Persona,
   preKeyId: number,
   signedPreKeyId: number,
+  kyberPreKeyId: number,
 ): Promise<PreKeyBundle> {
   // Generate fresh prekeys, store them in the persona's stores, then build a bundle.
   const ts = Date.now()
   const preKey = await PreKeyRecord.generate(preKeyId)
   const signedPreKey = await SignedPreKeyRecord.generate(signedPreKeyId, persona.identity, ts)
-  const kyberPreKey = await KyberPreKeyRecord.generate(signedPreKeyId, persona.identity, ts)
+  const kyberPreKey = await KyberPreKeyRecord.generate(kyberPreKeyId, persona.identity, ts)
   await persona.stores.storePreKey(preKeyId, preKey)
   await persona.stores.storeSignedPreKey(signedPreKeyId, signedPreKey)
-  await persona.stores.storeKyberPreKey(signedPreKeyId, kyberPreKey)
+  await persona.stores.storeKyberPreKey(kyberPreKeyId, kyberPreKey)
   return PreKeyBundle.create({
     registrationId: persona.registrationId,
     deviceId: persona.address.deviceId(),
@@ -45,7 +46,7 @@ export async function publishPreKeyBundle(
     signedPreKeyId,
     signedPreKeyPublic: signedPreKey.publicKey(),
     signedPreKeySignature: signedPreKey.signature(),
-    kyberPreKeyId: signedPreKeyId,
+    kyberPreKeyId,
     kyberPreKeyPublic: kyberPreKey.kyberPublicKey(),
     kyberPreKeySignature: kyberPreKey.signature(),
     preKeyId,

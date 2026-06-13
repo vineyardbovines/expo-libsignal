@@ -1,4 +1,10 @@
-import { type PreKeySignalMessage, SessionBuilder, SessionCipher, type SignalMessage } from 'expo-libsignal'
+import {
+  KyberPreKeyRecord,
+  type PreKeySignalMessage,
+  SessionBuilder,
+  SessionCipher,
+  type SignalMessage,
+} from 'expo-libsignal'
 import { useEffect, useState } from 'react'
 import { Button, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { createPersona, type Persona, publishPreKeyBundle } from '../personas/createPersona'
@@ -31,10 +37,18 @@ export default function AliceBobScreen() {
 
       const preKeyId = 100
       const signedPreKeyId = 200
-      const bundle = await publishPreKeyBundle(bob, preKeyId, signedPreKeyId)
+      const kyberPreKeyId = 300
+      // A decoy kyber prekey proves the used-id mapping is real: the store
+      // holds two kyber records and the op must mark the bundle's (300), not
+      // the decoy's (299) and not the signed prekey id (200).
+      await bob.stores.storeKyberPreKey(
+        299,
+        await KyberPreKeyRecord.generate(299, bob.identity, Date.now()),
+      )
+      const bundle = await publishPreKeyBundle(bob, preKeyId, signedPreKeyId, kyberPreKeyId)
       push({
         label: '2. Bob publishes PreKeyBundle',
-        detail: `preKeyId=${preKeyId} signedPreKeyId=${signedPreKeyId}`,
+        detail: `preKeyId=${preKeyId} signedPreKeyId=${signedPreKeyId} kyberPreKeyId=${kyberPreKeyId} (+decoy 299)`,
         ok: true,
       })
 
@@ -92,11 +106,12 @@ export default function AliceBobScreen() {
         detail: `preKeyId=${preKeyId} present=${!preKeyConsumed}`,
         ok: preKeyConsumed,
       })
-      const kyberMarked = bob.stores.isKyberPreKeyUsed(signedPreKeyId)
+      const kyberMarked = bob.stores.isKyberPreKeyUsed(kyberPreKeyId)
+      const decoyUntouched = !bob.stores.isKyberPreKeyUsed(299)
       push({
-        label: '7. Bob marked the kyber prekey used',
-        detail: `kyberPreKeyId=${signedPreKeyId} used=${kyberMarked}`,
-        ok: kyberMarked,
+        label: '7. Bob marked the right kyber prekey used',
+        detail: `kyberPreKeyId=${kyberPreKeyId} used=${kyberMarked} decoyUsed=${!decoyUntouched}`,
+        ok: kyberMarked && decoyUntouched,
       })
 
       const msg2 = await bobCipher.encrypt(utf8Encode('hi alice'))
