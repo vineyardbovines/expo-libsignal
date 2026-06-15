@@ -2,8 +2,9 @@ import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import AliceBobScreen from './src/screens/AliceBobScreen'
 import IdentityScreen from './src/screens/IdentityScreen'
+import PersistenceScreen from './src/screens/PersistenceScreen'
 
-type Tab = 'identity' | 'aliceBob'
+type Tab = 'identity' | 'aliceBob' | 'persistence'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('identity')
@@ -12,9 +13,16 @@ export default function App() {
       <View style={styles.tabBar}>
         <TabButton current={tab} value="identity" label="Identity" onPress={setTab} />
         <TabButton current={tab} value="aliceBob" label="Alice & Bob" onPress={setTab} />
+        <TabButton current={tab} value="persistence" label="Persistence" onPress={setTab} />
       </View>
       <View style={styles.screen}>
-        {tab === 'identity' ? <IdentityScreen /> : <AliceBobScreen />}
+        {tab === 'identity' ? (
+          <IdentityScreen />
+        ) : tab === 'aliceBob' ? (
+          <AliceBobScreen />
+        ) : (
+          <PersistenceScreen />
+        )}
       </View>
     </View>
   )
