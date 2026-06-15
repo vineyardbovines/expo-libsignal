@@ -3,8 +3,10 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
+    "@op-engineering/op-sqlite": "16.2.1",
     "expo": "~56.0.8",
     "expo-libsignal": "file:..",
+    "expo-secure-store": "~56.0.4",
     "react": "19.2.3",
     "react-native": "0.85.3"
   },
@@ -23,5 +25,8 @@
     "autolinking": {
       "nativeModulesDir": ".."
     }
+  },
+  "op-sqlite": {
+    "sqlcipher": true
   }
 }

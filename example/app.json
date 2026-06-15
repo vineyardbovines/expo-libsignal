@@ -23,6 +23,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-libsignal"]
+    "plugins": [
+      "expo-libsignal",
+      "expo-secure-store"
+    ]
   }
 }

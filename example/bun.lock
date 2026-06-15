@@ -5,8 +5,10 @@
     "": {
       "name": "expo-libsignal-example",
       "dependencies": {
+        "@op-engineering/op-sqlite": "16.2.1",
         "expo": "~56.0.8",
         "expo-libsignal": "file:..",
+        "expo-secure-store": "~56.0.4",
         "react": "19.2.3",
         "react-native": "0.85.3",
       },
@@ -444,6 +446,8 @@
     "@msgpackr-extract/msgpackr-extract-win32-x64": ["@msgpackr-extract/msgpackr-extract-win32-x64@3.0.4", "", { "os": "win32", "cpu": "x64" }, "sha512-CmCXPQrkbwExx3j946/PtHWHbYJiCRBRDl4BlkRQcJB/YOwQxJRTpoo7aTsortjgoJ1x7opzTSxn7C+ASSLVjQ=="],
 
     "@nicolo-ribaudo/chokidar-2": ["@nicolo-ribaudo/chokidar-2@2.1.8-no-fsevents.3", "", {}, "sha512-s88O1aVtXftvp5bCPB7WnmXc5IwOZZ7YPuwNPt+GtOOXpPvad1LfbmjYv+qII7zP6RU2QGnqve27dnLycEnyEQ=="],
+
+    "@op-engineering/op-sqlite": ["@op-engineering/op-sqlite@16.2.1", "", { "peerDependencies": { "@sqlite.org/sqlite-wasm": "*", "react": "*", "react-native": "*" }, "optionalPeers": ["@sqlite.org/sqlite-wasm"] }, "sha512-mDMdvAJJ97XfmJRKxzldyR9OpADmPVDofOWRgcB+kN1mlKmNkoJMZnX5SDYsYUki215FZkXzevExuhSzfyEWLw=="],
 
     "@pkgjs/parseargs": ["@pkgjs/parseargs@0.11.0", "", {}, "sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg=="],
 
