@@ -189,7 +189,7 @@ try {
 |---|---|
 | Foundation (identity keys) | ✅ shipped |
 | 1:1 messaging (X3DH, Double Ratchet, PreKey bundles) | ✅ shipped |
-| Default SQLCipher-backed stores | pending |
+| Default SQLCipher-backed stores | shipped (Android verified end to end; iOS Simulator blocked by an op-sqlite/SQLCipher hang on write — see `example/SMOKE_TEST_LOG.md`) |
 | Groups (Sender Keys), Sealed Sender, Provisioning | pending |
 | Ergonomic `SignalClient` facade, full example playground, npm publishing | pending |
 

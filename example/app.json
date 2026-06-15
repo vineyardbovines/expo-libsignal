@@ -8,7 +8,12 @@
     "userInterfaceStyle": "light",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "expo.modules.libsignal.example"
+      "bundleIdentifier": "expo.modules.libsignal.example",
+      "entitlements": {
+        "keychain-access-groups": [
+          "$(AppIdentifierPrefix)expo.modules.libsignal.example"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
