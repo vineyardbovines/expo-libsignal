@@ -24,7 +24,22 @@ const shortHex = (b: Uint8Array, n = 8) =>
 
 // Bob's local UUID is arbitrary in this smoke; sealed sender only verifies the
 // sender side of the envelope. Use a fixed v4-shaped string so logs are stable.
-const BOB_LOCAL_UUID = 'bob00000-0000-4000-8000-000000000000'
+const BOB_LOCAL_UUID = 'b0b00000-0000-4000-8000-000000000000'
+
+// Tiny v4 UUID generator. React Native's global runtime does not expose
+// `crypto.randomUUID()`, so the example screen rolls its own. Math.random()
+// is fine here — this is a smoke test, not production key material.
+function randomUuidV4(): string {
+  const hex = '0123456789abcdef'
+  let out = ''
+  for (let i = 0; i < 36; i++) {
+    if (i === 8 || i === 13 || i === 18 || i === 23) out += '-'
+    else if (i === 14) out += '4'
+    else if (i === 19) out += hex[8 + Math.floor(Math.random() * 4)]
+    else out += hex[Math.floor(Math.random() * 16)]
+  }
+  return out
+}
 
 export default function SealedSenderScreen() {
   const [steps, setSteps] = useState<StepResult[]>([])
@@ -80,7 +95,7 @@ export default function SealedSenderScreen() {
         ok: true,
       })
 
-      const senderUuid = crypto.randomUUID().toLowerCase()
+      const senderUuid = randomUuidV4()
       const expiration = Date.now() + 60_000
       const senderCert = await SenderCertificate.generate({
         senderUuid,
