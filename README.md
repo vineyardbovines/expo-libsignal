@@ -225,7 +225,8 @@ try {
 | Foundation (identity keys) | ✅ shipped |
 | 1:1 messaging (X3DH, Double Ratchet, PreKey bundles) | ✅ shipped |
 | Default SQLCipher-backed stores | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`; iOS requires the Podfile `post_install` hook shown above) |
-| Groups (Sender Keys), Sealed Sender, Provisioning | pending |
+| Groups (Sender Keys) | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`) |
+| Sealed Sender, Provisioning | pending |
 | Ergonomic `SignalClient` facade, full example playground, npm publishing | pending |
 
 ## How it works under the hood
