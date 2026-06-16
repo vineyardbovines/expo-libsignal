@@ -16,11 +16,16 @@
         "typescript": "~6.0.3",
       },
       "peerDependencies": {
+        "@op-engineering/op-sqlite": "*",
         "expo": ">=55.0.0",
         "expo-secure-store": "*",
         "react": "*",
         "react-native": "*",
       },
+      "optionalPeers": [
+        "@op-engineering/op-sqlite",
+        "expo-secure-store",
+      ],
     },
   },
   "packages": {
@@ -903,8 +908,6 @@
     "expo-modules-core": ["expo-modules-core@56.0.14", "", { "dependencies": { "@expo/expo-modules-macros-plugin": "~0.0.9", "expo-modules-jsi": "~56.0.7", "invariant": "^2.2.4" }, "peerDependencies": { "react": "*", "react-native": "*", "react-native-worklets": "^0.7.4 || ^0.8.0" }, "optionalPeers": ["react-native-worklets"] }, "sha512-dl1TlYRm1k7xk9QeAyDoMfFE2p6rNyzHUcH5ArcGwUzO8YKku+Z2tQ8+kG7zLe3OhfMoJcFR/czrFy7vGSVI6w=="],
 
     "expo-modules-jsi": ["expo-modules-jsi@56.0.7", "", { "peerDependencies": { "react-native": "*" } }, "sha512-iBAj4Xeh/8HT201VVxFlmf+VBfmtQV1ZUoJdLQQENm0+j9gnD2QswZLJyNo3CmNNXl46esJeLR5lpGpYZts/zA=="],
-
-    "expo-secure-store": ["expo-secure-store@56.0.4", "", { "peerDependencies": { "expo": "*" } }, "sha512-hjEi/gmpdFFJ9lYbdp3k3p/WchV7Gi0Qt8jt/m/0WJadqQrskafHAlDxbZkII1cN3Yd7zp9Lvkeq3UfGhSwirQ=="],
 
     "expo-server": ["expo-server@56.0.4", "", {}, "sha512-4dJ57KuAwDl7eQGD6aG9kTzBIftWAfHH1+6Zxy7NcPCBrKYis3/H5enGUz1asH8HHhONXfJ5BdJqfEWAEAgWxA=="],
 

@@ -8,6 +8,10 @@
     "noImplicitOverride": true,
     "exactOptionalPropertyTypes": true,
     "moduleResolution": "bundler",
+    "paths": {
+      "expo-libsignal": ["./src/index.ts"],
+      "expo-libsignal/stores": ["./src/stores/index.ts"]
+    },
     "lib": ["ES2023", "DOM"],
     "target": "ES2022",
     "esModuleInterop": true,
