@@ -19,6 +19,9 @@ Manual on-device runs of the example app's integration screens, newest first.
 - Stack at hang (from sampling a crash dump from one earlier wrong-key run): `sqlcipher_shield` → `sqlcipher_page_hmac` → `sqlcipher_page_cipher` → `sqlite3Codec` inside op-sqlite's `execute` thread pool. Looks environmental (op-sqlite + SQLCipher + iOS Simulator), not in this library: same JS path passes on Android.
 - The example app's iOS entitlements now declare `keychain-access-groups` (via `ios.entitlements` in `app.json`) so expo-secure-store works on Xcode simulator builds without team signing.
 - Recommended: re-run on a physical iOS device or revisit when op-sqlite ships a fix.
+- Version bisection (2026-06-15 evening): the hang reproduces identically on op-sqlite 15.2.14, 16.2.1, and 16.2.2. Pre- and post-PR #409 (the SQLCipher key API switch in 16.1.0) both hang the same way, so the bug is older and broader than that change. Constants across all three versions: iOS Simulator + bundled SQLCipher + OpenSSL-Universal.
+- Related upstream context (not a fix): op-sqlite [issue #202](https://github.com/OP-Engineering/op-sqlite/issues/202) calls out a shared thread pool with no concurrency guarantees; [issue #245](https://github.com/OP-Engineering/op-sqlite/issues/245) and [issue #360](https://github.com/OP-Engineering/op-sqlite/issues/360) document other SQLCipher / iOS Simulator quirks; [issue #417](https://github.com/OP-Engineering/op-sqlite/issues/417) was a 16.2.1 UTF-8 regression, reverted in 16.2.2.
+- Next steps: try a physical iPhone, or file an issue against op-sqlite with a minimal repro.
 
 ## 2026-06-12 — Phase 2: 1:1 messaging (Android)
 
