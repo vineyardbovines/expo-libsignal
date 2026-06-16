@@ -2,6 +2,7 @@ import { IdentityKey, IdentityKeyPair } from '../core/IdentityKeyPair'
 import { KyberPreKeyRecord } from '../core/KyberPreKeyRecord'
 import { PreKeyRecord } from '../core/PreKeyRecord'
 import type { ProtocolAddress } from '../core/ProtocolAddress'
+import { SenderKeyRecord } from '../core/SenderKeyRecord'
 import { SessionRecord } from '../core/SessionRecord'
 import { SignedPreKeyRecord } from '../core/SignedPreKeyRecord'
 import type {
@@ -10,6 +11,7 @@ import type {
   IdentityKeyStore,
   KyberPreKeyStore,
   PreKeyStore,
+  SenderKeyStore,
   SessionStore,
   SignedPreKeyStore,
 } from '../core/stores'
@@ -57,7 +59,13 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
  * Do not open two stores on the same database file.
  */
 export class SQLCipherProtocolStore
-  implements SessionStore, IdentityKeyStore, PreKeyStore, SignedPreKeyStore, KyberPreKeyStore
+  implements
+    SessionStore,
+    IdentityKeyStore,
+    PreKeyStore,
+    SignedPreKeyStore,
+    KyberPreKeyStore,
+    SenderKeyStore
 {
   private readonly db: SqlDatabase
   private readonly keyAlias: string
@@ -272,6 +280,34 @@ export class SQLCipherProtocolStore
   // loadable because late-arriving PreKeySignalMessages may reference them.
   async markKyberPreKeyUsed(id: number): Promise<void> {
     await this.db.execute('UPDATE kyber_prekeys SET used_at = ? WHERE id = ?', [Date.now(), id])
+  }
+
+  // SenderKeyStore
+
+  async loadSenderKey(
+    sender: ProtocolAddress,
+    distributionId: string,
+  ): Promise<SenderKeyRecord | null> {
+    const res = await this.db.execute(
+      'SELECT record FROM sender_keys WHERE name = ? AND device_id = ? AND distribution_id = ?',
+      [sender.name(), sender.deviceId(), distributionId],
+    )
+    const row = res.rows[0]
+    if (row === undefined) return null
+    return SenderKeyRecord.deserialize(toBytes(row.record))
+  }
+
+  async storeSenderKey(
+    sender: ProtocolAddress,
+    distributionId: string,
+    record: SenderKeyRecord,
+  ): Promise<void> {
+    await this.db.execute(
+      'INSERT INTO sender_keys (name, device_id, distribution_id, record, updated_at) ' +
+        'VALUES (?, ?, ?, ?, ?) ' +
+        'ON CONFLICT(name, device_id, distribution_id) DO UPDATE SET record = excluded.record, updated_at = excluded.updated_at',
+      [sender.name(), sender.deviceId(), distributionId, record.serialize(), Date.now()],
+    )
   }
 
   // Lifecycle and concurrency
