@@ -2,6 +2,16 @@
 
 Manual on-device runs of the example app's integration screens, newest first.
 
+## 2026-06-16 — Store layer migrated to expo-sqlite, verified on both platforms
+
+- iOS simulator (iPhone 17 Pro, iOS 26.4): pass (SignalClient screen 4 of 4 scripted steps green over expo-sqlite + SQLCipher)
+- Android emulator (Pixel 10 AVD): pass (same)
+- Migrated the default SQLCipher-backed store from `@op-engineering/op-sqlite` to `expo-sqlite` with the official `useSQLCipher` plugin option. Removed the iOS Podfile `post_install` hook (`SQLCIPHER_CRYPTO_CC` / `NDEBUG`), the `op-sqlite.sqlcipher` block from `package.json`, and the third-party dependency entirely. expo-sqlite's podspec swaps the vendored SQLite amalgamation for SQLCipher's and applies the right flags when `Podfile.properties.json["expo.sqlite.useSQLCipher"] == "true"`.
+- Two environment issues hit during smoke and worth recording:
+  - `npx expo install expo-sqlite` clobbered the workspace symlink for `expo-libsignal` again (same pattern as the `@types/jest` install earlier this session — `file:..` resolution under bun's workspace install). Repaired with a manual symlink to the repo root. Memory note (`example-workspace-install.md`) covers this.
+  - `expo-modules-jsi`'s `build-xcframework.sh` uses `find ... -exec sed -i '' '<script>' {} +` to strip Swift `_ConstraintThatIsNotPartOfTheAPIOfThisLibrary` extensions from `.swiftinterface` files. Under the CocoaPods script-phase shell, the empty backup-extension arg `''` after `-i` was being coalesced away, so sed ended up reading the script as a filename and emitting `sed: can't read /^extension __ObjC\./...`. Patched the line locally to use `sed -i.tmp ... && find ... -name '*.swiftinterface.tmp' -delete`. The patch lives in `example/node_modules/expo-modules-jsi/apple/scripts/build-xcframework.sh` and will get nuked on the next install — worth upstreaming or wrapping in `patch-package`.
+  - On the first build, `Podfile.properties.json` did not get the `expo.sqlite.useSQLCipher: "true"` key the plugin should write. The plugin runs at `expo prebuild`, but the iOS folder was already prebuilt from earlier work, so the plugin didn't apply. Fixed by editing the file directly and re-running `pod install` (which re-runs the podspec, which vendors the SQLCipher source). Cleaner future fix: `npx expo prebuild --clean` after adding the plugin.
+
 ## 2026-06-16 — SignalClient facade demo verified on both platforms
 
 - iOS simulator (iPhone 17 Pro, iOS 26.4): pass (4 of 4 scripted steps green; interactive 1:1 + sealed + group sends manually exercised)

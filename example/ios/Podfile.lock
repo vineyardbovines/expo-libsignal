@@ -74,35 +74,13 @@ PODS:
     - ExpoModulesJSI
   - ExpoSecureStore (56.0.4):
     - ExpoModulesCore
+  - ExpoSQLite (56.0.5):
+    - ExpoModulesCore
   - FBLazyVector (0.85.3)
   - hermes-engine (250829098.0.10):
     - hermes-engine/Pre-built (= 250829098.0.10)
   - hermes-engine/Pre-built (250829098.0.10)
   - LibSignalClient (0.94.4)
-  - op-sqlite (15.2.14):
-    - hermes-engine
-    - OpenSSL-Universal
-    - RCTRequired
-    - RCTTypeSafety
-    - React-Core
-    - React-Core-prebuilt
-    - React-debug
-    - React-Fabric
-    - React-featureflags
-    - React-graphics
-    - React-ImageManager
-    - React-jsi
-    - React-NativeModulesApple
-    - React-RCTFabric
-    - React-renderercss
-    - React-rendererdebug
-    - React-utils
-    - ReactCodegen
-    - ReactCommon/turbomodule/bridging
-    - ReactCommon/turbomodule/core
-    - ReactNativeDependencies
-    - Yoga
-  - OpenSSL-Universal (3.6.2000)
   - RCTDeprecation (0.85.3)
   - RCTRequired (0.85.3)
   - RCTSwiftUI (0.85.3)
@@ -1903,10 +1881,10 @@ DEPENDENCIES:
   - ExpoModulesJSI (from `../node_modules/expo-modules-jsi/apple`)
   - ExpoModulesWorklets (from `../node_modules/expo-modules-core`)
   - ExpoSecureStore (from `../node_modules/expo-secure-store/ios`)
+  - ExpoSQLite (from `../node_modules/expo-sqlite/ios`)
   - FBLazyVector (from `../node_modules/react-native/Libraries/FBLazyVector`)
   - hermes-engine (from `../node_modules/react-native/sdks/hermes-engine/hermes-engine.podspec`)
   - LibSignalClient (from `https://raw.githubusercontent.com/signalapp/libsignal/v0.94.4/LibSignalClient.podspec`)
-  - "op-sqlite (from `../node_modules/@op-engineering/op-sqlite`)"
   - RCTDeprecation (from `../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation`)
   - RCTRequired (from `../node_modules/react-native/Libraries/Required`)
   - RCTSwiftUI (from `../node_modules/react-native/ReactApple/RCTSwiftUI`)
@@ -1981,10 +1959,6 @@ DEPENDENCIES:
   - ReactNativeDependencies (from `../node_modules/react-native/third-party-podspecs/ReactNativeDependencies.podspec`)
   - Yoga (from `../node_modules/react-native/ReactCommon/yoga`)
 
-SPEC REPOS:
-  trunk:
-    - OpenSSL-Universal
-
 EXTERNAL SOURCES:
   EXConstants:
     :path: "../node_modules/expo-constants/ios"
@@ -2012,6 +1986,8 @@ EXTERNAL SOURCES:
     :path: "../node_modules/expo-modules-core"
   ExpoSecureStore:
     :path: "../node_modules/expo-secure-store/ios"
+  ExpoSQLite:
+    :path: "../node_modules/expo-sqlite/ios"
   FBLazyVector:
     :path: "../node_modules/react-native/Libraries/FBLazyVector"
   hermes-engine:
@@ -2019,8 +1995,6 @@ EXTERNAL SOURCES:
     :tag: hermes-v250829098.0.10
   LibSignalClient:
     :podspec: https://raw.githubusercontent.com/signalapp/libsignal/v0.94.4/LibSignalClient.podspec
-  op-sqlite:
-    :path: "../node_modules/@op-engineering/op-sqlite"
   RCTDeprecation:
     :path: "../node_modules/react-native/ReactApple/Libraries/RCTFoundation/RCTDeprecation"
   RCTRequired:
@@ -2180,11 +2154,10 @@ SPEC CHECKSUMS:
   ExpoModulesJSI: f25a013ea9a79904bdd535e4bea0872e155cde09
   ExpoModulesWorklets: 3f847eb6ba544bd4b55d585f89b3b18f8cd73a72
   ExpoSecureStore: f1bd083c1b7b8d4142013ffcc0082d377d9f49f4
+  ExpoSQLite: 9428b5ab17b9e0f0ca5c5fde6dc5caf1057de9fa
   FBLazyVector: 24e62c765683b8d89006a88a2c8f5cf019f0074d
   hermes-engine: 2f5eb9033e6dce96026c0dfb59f8924e9420316b
   LibSignalClient: 08d66ae1b4e9c93f9e6930cc0260df27c14ecd03
-  op-sqlite: 97439a2ae87274a7786731346449ef6aaffe5188
-  OpenSSL-Universal: ecee7b138fa75a74ecf00d7ffd248fb584739b9e
   RCTDeprecation: a4c521821fab57cbb125b36effe84d897d0dfa12
   RCTRequired: 9f3a7e5645d4bc3f551593de7550bb66ab6e42bc
   RCTSwiftUI: 239ed2eb9e73de5a6f518810630f0c95e01c8702
@@ -2258,6 +2231,6 @@ SPEC CHECKSUMS:
   ReactNativeDependencies: d6508795172f99a6be50a1ec8a7a33b1ecdfb461
   Yoga: 77dfa8673de2874e1855002ae59c68b8be9b007b
 
-PODFILE CHECKSUM: 3164c4586826871f61de7c83819b900e6608127f
+PODFILE CHECKSUM: 0fefa8d10308a386098d91d6dbb19f48cd2a56ea
 
 COCOAPODS: 1.16.2

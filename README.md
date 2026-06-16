@@ -199,58 +199,41 @@ const ciphertext = await store.runExclusive(() => cipher.encrypt(plaintext))
 The default store requires two optional peer dependencies:
 
 ```bash
-bunx expo install expo-secure-store
-bun add @op-engineering/op-sqlite
+bunx expo install expo-secure-store expo-sqlite
 ```
 
-and SQLCipher enabled in **your app's** package.json (op-sqlite reads this
-from the app root; a library cannot set it):
+Enable SQLCipher on the expo-sqlite plugin in your `app.json`:
 
 ```json
-"op-sqlite": {
-  "sqlcipher": true
+{
+  "expo": {
+    "plugins": [
+      "expo-libsignal",
+      "expo-secure-store",
+      ["expo-sqlite", { "useSQLCipher": true }]
+    ]
+  }
 }
 ```
 
-On iOS, SQLCipher needs two extra C flags: `-DSQLCIPHER_CRYPTO_CC` routes it
-through Apple's CommonCrypto instead of OpenSSL (the OpenSSL backend hangs on
-the first page-cipher HMAC call inside iOS Simulator, and CommonCrypto is also
-the conventional and hardware-accelerated choice on Apple platforms);
-`-DNDEBUG=1` matches what SQLite's amalgamation expects in non-debug builds
-(without it, a clean rebuild of the SQLCipher amalgamation under Xcode Debug
-fails on `assert()` references to debug-only struct members).
+Then prebuild:
 
-op-sqlite's package.json `sqliteFlags` knob is platform-shared — anything you
-put there is forwarded to Android's NDK clang too, and `-DSQLCIPHER_CRYPTO_CC`
-makes the SQLCipher amalgamation `#include <CommonCrypto/CommonCrypto.h>`,
-which doesn't exist on Android. Inject the flags from a CocoaPods
-`post_install` hook in your app's `ios/Podfile` instead, scoped to the
-op-sqlite pod target:
-
-```ruby
-post_install do |installer|
-  # ... existing post_install logic (Expo, React Native) ...
-  installer.pods_project.targets.each do |t|
-    next unless t.name == 'op-sqlite'
-    t.build_configurations.each do |config|
-      cflags = config.build_settings['OTHER_CFLAGS']
-      cflags = ['$(inherited)'] if cflags.nil? || cflags.empty?
-      cflags = [cflags] if cflags.is_a?(String)
-      cflags += ['-DSQLCIPHER_CRYPTO_CC', '-DNDEBUG=1']
-      config.build_settings['OTHER_CFLAGS'] = cflags
-    end
-  end
-end
+```bash
+bunx expo prebuild --clean
 ```
 
-Android uses the default OpenSSL backend op-sqlite bundles and needs no
-extra flags. The store refuses to open if op-sqlite was built
-without SQLCipher. The
-database key is 32 random bytes, hex-encoded, kept in the iOS Keychain /
-Android Keystore via expo-secure-store (`WHEN_UNLOCKED_THIS_DEVICE_ONLY` by
-default; override `keychainAccessible`, or supply your own `keyProvider`).
-Schema migrations are forward-only; during 0.x a release may change the
-schema without a data migration path, and the release notes will say so.
+That swaps expo-sqlite's vendored SQLite amalgamation for the SQLCipher
+amalgamation (CommonCrypto backend on iOS, OpenSSL on Android) and adds the
+SQLite-side flags SQLCipher needs (`SQLITE_HAS_CODEC`, `NDEBUG`, etc.). No
+Podfile hook required.
+
+The store refuses to open if expo-sqlite was built without SQLCipher — it
+verifies via `PRAGMA cipher_version` after applying the key. The database
+key is 32 random bytes, hex-encoded, kept in the iOS Keychain / Android
+Keystore via expo-secure-store (`WHEN_UNLOCKED_THIS_DEVICE_ONLY` by default;
+override `keychainAccessible`, or supply your own `keyProvider`). Schema
+migrations are forward-only; during 0.x a release may change the schema
+without a data migration path, and the release notes will say so.
 
 **Breaking change (unreleased 0.x):** `KyberPreKeyStore` gained
 `loadKyberPreKeys(): Promise<KyberPreKeyRecord[]>`. libsignal 0.94.4 does not
