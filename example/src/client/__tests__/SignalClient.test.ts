@@ -191,3 +191,68 @@ describe('SignalClient — 1:1 send/receive', () => {
     })
   })
 })
+
+describe('SignalClient — sealed sender', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  test('send({sealed:true}) throws if configureSealedSender was not called', async () => {
+    const client = await SignalClient.open({
+      databaseName: 'a.db',
+      keyAlias: 'a.k',
+      self: { name: 'alice', deviceId: 1 },
+    })
+    await expect(
+      client.send({ name: 'bob', deviceId: 1 }, 'hi', { sealed: true }),
+    ).rejects.toThrow(/SealedSender not configured/)
+  })
+
+  test('configured sealed send returns a sealed envelope', async () => {
+    const SealedSender = require('expo-libsignal').SealedSender
+    SealedSender.encrypt = jest.fn(async () => new Uint8Array([0xc1, 0xc2]))
+    const client = await SignalClient.open({
+      databaseName: 'a.db',
+      keyAlias: 'a.k',
+      self: { name: 'alice', deviceId: 1 },
+    })
+    client.configureSealedSender({
+      trustRoot: { serialize: () => new Uint8Array() } as never,
+      senderCert: { serialize: () => new Uint8Array() } as never,
+    })
+    const env = await client.send({ name: 'bob', deviceId: 1 }, 'hi', {
+      sealed: true,
+    })
+    expect(env.type).toBe('sealed')
+    if (env.type === 'sealed') {
+      expect(env.bytes).toEqual(new Uint8Array([0xc1, 0xc2]))
+    }
+  })
+
+  test('sealed receive returns the recovered sender', async () => {
+    const SealedSender = require('expo-libsignal').SealedSender
+    SealedSender.decryptMessage = jest.fn(async () => ({
+      message: new TextEncoder().encode('hi'),
+      senderUuid: 'alice-uuid',
+      senderE164: null,
+      senderDeviceId: 1,
+    }))
+    const client = await SignalClient.open({
+      databaseName: 'b.db',
+      keyAlias: 'b.k',
+      self: { name: 'bob', deviceId: 1 },
+    })
+    client.configureSealedSender({
+      trustRoot: { serialize: () => new Uint8Array() } as never,
+      senderCert: { serialize: () => new Uint8Array() } as never,
+    })
+    const received = await client.receive({
+      type: 'sealed',
+      bytes: new Uint8Array([0xc1, 0xc2]),
+    })
+    expect(received).toEqual({
+      kind: 'message',
+      from: { name: 'alice-uuid', deviceId: 1 },
+      plaintext: 'hi',
+      sealed: true,
+    })
+  })
+})

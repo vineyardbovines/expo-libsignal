@@ -7,11 +7,13 @@ import {
   PreKeySignalMessage,
   ProtocolAddress,
   PublicKey,
+  SealedSender,
   SessionBuilder,
   SessionCipher,
   SignalMessage,
   SignedPreKeyRecord,
 } from 'expo-libsignal'
+import type { SenderCertificate } from 'expo-libsignal'
 import { SQLCipherProtocolStore } from 'expo-libsignal/stores'
 
 // Plain-object boundary types. Apps never construct ProtocolAddress directly.
@@ -60,6 +62,7 @@ export class SignalClient {
   /** @internal */ readonly store: SQLCipherProtocolStore
   /** @internal */ readonly self: ProtocolAddress
   /** @internal */ readonly selfAddress: Address
+  private sealedConfig: { trustRoot: PublicKey; senderCert: SenderCertificate } | null = null
 
   private constructor(
     store: SQLCipherProtocolStore,
@@ -69,6 +72,13 @@ export class SignalClient {
     this.store = store
     this.self = self
     this.selfAddress = selfAddress
+  }
+
+  configureSealedSender(opts: {
+    trustRoot: PublicKey
+    senderCert: SenderCertificate
+  }): void {
+    this.sealedConfig = opts
   }
 
   static async open(opts: {
@@ -172,7 +182,30 @@ export class SignalClient {
     await this.store.runExclusive(() => builder.processPreKeyBundle(preKeyBundle))
   }
 
-  async send(to: Address, plaintext: string): Promise<Envelope> {
+  async send(
+    to: Address,
+    plaintext: string,
+    opts?: { sealed?: boolean },
+  ): Promise<Envelope> {
+    if (opts?.sealed === true) {
+      if (this.sealedConfig === null) {
+        throw new Error(
+          'SealedSender not configured — call configureSealedSender first',
+        )
+      }
+      const remoteAddress = await ProtocolAddress.create(to.name, to.deviceId)
+      const config = this.sealedConfig
+      const bytes = await this.store.runExclusive(() =>
+        SealedSender.encrypt({
+          destination: remoteAddress,
+          senderCert: config.senderCert,
+          message: new TextEncoder().encode(plaintext),
+          sessionStore: this.store,
+          identityStore: this.store,
+        }),
+      )
+      return { type: 'sealed', bytes }
+    }
     const remoteAddress = await ProtocolAddress.create(to.name, to.deviceId)
     const cipher = new SessionCipher(
       {
@@ -194,6 +227,36 @@ export class SignalClient {
   }
 
   async receive(envelope: Envelope): Promise<Received> {
+    if (envelope.type === 'sealed') {
+      if (this.sealedConfig === null) {
+        throw new Error(
+          'SealedSender not configured — call configureSealedSender first',
+        )
+      }
+      const config = this.sealedConfig
+      const result = await this.store.runExclusive(() =>
+        SealedSender.decryptMessage({
+          ciphertext: envelope.bytes,
+          trustRoot: config.trustRoot,
+          timestamp: Date.now(),
+          localUuid: this.selfAddress.name,
+          localDeviceId: this.selfAddress.deviceId,
+          stores: {
+            sessionStore: this.store,
+            identityStore: this.store,
+            preKeyStore: this.store,
+            signedPreKeyStore: this.store,
+            kyberPreKeyStore: this.store,
+          },
+        }),
+      )
+      return {
+        kind: 'message',
+        from: { name: result.senderUuid, deviceId: result.senderDeviceId },
+        plaintext: new TextDecoder().decode(result.message),
+        sealed: true,
+      }
+    }
     if (envelope.type === 'preKeySignal' || envelope.type === 'signal') {
       const remoteAddress = await ProtocolAddress.create(
         envelope.from.name,
