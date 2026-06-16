@@ -466,5 +466,87 @@ public final class ExpoLibsignalModule: Module {
         throw Exception(name: "LibsignalError", description: "\(error)")
       }
     }
+
+    AsyncFunction("deserializeServerCertificate") { (bytes: Data) -> ServerCertificateRef in
+      do {
+        let cert = try ServerCertificate(bytes)
+        return ServerCertificateRef(cert: cert)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(ServerCertificateRef.self) {
+      Function("serialize") { (ref: ServerCertificateRef) -> Data in ref.cert.serialize() }
+      Function("keyId") { (ref: ServerCertificateRef) -> UInt32 in ref.cert.keyId }
+      Function("signature") { (ref: ServerCertificateRef) -> Data in ref.cert.signatureBytes }
+      Function("key") { (ref: ServerCertificateRef) -> PublicKeyRef in
+        PublicKeyRef(key: ref.cert.publicKey)
+      }
+    }
+
+    AsyncFunction("deserializeSenderCertificate") { (bytes: Data) -> SenderCertificateRef in
+      do {
+        let cert = try SenderCertificate(bytes)
+        return SenderCertificateRef(cert: cert)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(SenderCertificateRef.self) {
+      Function("serialize") { (ref: SenderCertificateRef) -> Data in ref.cert.serialize() }
+      // Lowercased to match Java's UUID.toString() (Foundation UUID is uppercase).
+      Function("senderUuid") { (ref: SenderCertificateRef) -> String in ref.cert.senderUuid.lowercased() }
+      Function("senderE164") { (ref: SenderCertificateRef) -> String? in ref.cert.senderE164 }
+      Function("senderDeviceId") { (ref: SenderCertificateRef) -> UInt32 in ref.cert.deviceId }
+      Function("expiration") { (ref: SenderCertificateRef) -> Double in Double(ref.cert.expiration) }
+      Function("signatureKey") { (ref: SenderCertificateRef) -> PublicKeyRef in
+        PublicKeyRef(key: ref.cert.publicKey)
+      }
+      Function("serverCertificate") { (ref: SenderCertificateRef) -> ServerCertificateRef in
+        ServerCertificateRef(cert: ref.cert.serverCertificate)
+      }
+    }
+
+    AsyncFunction("generateServerCertificateOp") { (keyId: UInt32, serverKey: Data, trustRoot: Data) -> GenerateServerCertificateResult in
+      do {
+        return try runGenerateServerCertificateOp(keyId: keyId, serverKeyBytes: serverKey, trustRootBytes: trustRoot)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("generateSenderCertificateOp") { (senderUuid: String, senderE164: String?, senderDeviceId: UInt32, senderKey: Data, expiration: Double, serverCert: Data, serverPrivateKey: Data) -> GenerateSenderCertificateResult in
+      do {
+        return try runGenerateSenderCertificateOp(senderUuid: senderUuid, senderE164: senderE164, senderDeviceId: senderDeviceId, senderKeyBytes: senderKey, expiration: expiration, serverCertBytes: serverCert, serverPrivateKeyBytes: serverPrivateKey)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("validateSenderCertificateOp") { (senderCert: Data, trustRoot: Data, validationTime: Double) -> Bool in
+      do {
+        return try runValidateSenderCertificateOp(senderCertBytes: senderCert, trustRootBytes: trustRoot, validationTime: validationTime)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("sealedSenderEncryptOp") { (config: SealedSenderEncryptOpConfig, senderCert: Data, plaintext: Data, existingSession: Data, existingRemoteIdentity: Data?, ourIdentityKeyPair: Data) -> SealedSenderEncryptResult in
+      do {
+        return try runSealedSenderEncryptOp(config: config, senderCertBytes: senderCert, plaintext: plaintext, existingSession: existingSession, existingRemoteIdentity: existingRemoteIdentity, ourIdentityKeyPair: ourIdentityKeyPair)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("sealedSenderDecryptOp") { (config: SealedSenderDecryptOpConfig, ciphertext: Data, trustRoot: Data, ourIdentityKeyPair: Data, kyberPreKeys: Data, preKeys: Data, signedPreKeys: Data) -> SealedSenderDecryptResult in
+      do {
+        return try runSealedSenderDecryptOp(config: config, ciphertext: ciphertext, trustRootBytes: trustRoot, ourIdentityKeyPair: ourIdentityKeyPair, kyberPreKeysBlob: kyberPreKeys, preKeysBlob: preKeys, signedPreKeysBlob: signedPreKeys)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
   }
 }
