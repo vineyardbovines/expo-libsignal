@@ -2,11 +2,12 @@
 
 Manual on-device runs of the example app's integration screens, newest first.
 
-## 2026-06-16 — SignalClient facade demo verified on iOS Simulator
+## 2026-06-16 — SignalClient facade demo verified on both platforms
 
 - iOS simulator (iPhone 17 Pro, iOS 26.4): pass (4 of 4 scripted steps green; interactive 1:1 + sealed + group sends manually exercised)
+- Android emulator (Pixel 10 AVD): pass (4 of 4 scripted steps green)
 - Demo: `Client` tab opens three `SignalClient` instances (alice / bob / carol), each over its own SQLCipher store (`alice.client.db` / `bob.client.db` / `carol.client.db`). Mount sequence: identities → six pairwise sessions → trust-root + server cert + three sender certs → every persona welcomes the other two → alice posts the first group message. Composer per panel + persona-targeted sends with a sealed toggle remain interactive after smoke.
-- Android: smoke deferred. The Phase 4b native module is unchanged, so the same `[SIGNALCLIENT-SUMMARY]` should fire — but `npx expo run:android` is currently blocked by an upstream `sed` error in `expo-modules-jsi`'s pod build script (the same one that blocked the iOS prebuild path this session). Workaround used for iOS: skip prebuild, start Metro directly, point the already-installed dev client at it.
+- iOS prebuild path note: `npx expo run:ios` failed during this session inside an `expo-modules-jsi` pod build phase (`sed` script missing its `-e` flag — BSD sed treated the script as a filename and emitted "No such file or directory"). Workaround: start Metro directly (`npx expo start --port 8082 --dev-client`), let the already-installed dev client connect to it. Android Gradle path was unaffected — `npx expo run:android` builds and installs cleanly.
 - Three example-side bugs surfaced and fixed during smoke:
   - Initial chat row format (`> bob: hi bob`) was visually ambiguous — could read as "from bob: hi bob". Switched to `↑ you → bob: ...` / `↓ alice → you: ...` so direction + sender + recipient are all explicit.
   - Only alice was calling `group.welcome` — bob and carol therefore had no sender key for the distribution and hit `SenderKeyNotFoundError` on their own group sends. Fix: scripted mount now has every persona welcome the other two.

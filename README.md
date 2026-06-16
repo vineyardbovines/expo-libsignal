@@ -233,7 +233,7 @@ try {
 | Default SQLCipher-backed stores | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`; iOS requires the Podfile `post_install` hook shown above) |
 | Groups (Sender Keys) | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`) |
 | Sealed Sender | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`) |
-| Ergonomic `SignalClient` facade | ✅ shipped as an example app pattern — `example/src/client/SignalClient.ts` wraps identity + 1:1 + sealed + groups + persistence behind one class; demo on the `Client` tab. Lift candidates noted in `docs/superpowers/specs/2026-06-16-signalclient-facade-design.md` |
+| Ergonomic `SignalClient` facade | ✅ shipped as an example app pattern (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`) — `example/src/client/SignalClient.ts` wraps identity + 1:1 + sealed + groups + persistence behind one class; demo on the `Client` tab. Lift candidates noted in `docs/superpowers/specs/2026-06-16-signalclient-facade-design.md` |
 | Provisioning | deferred (libsignal 0.94.4 no longer exposes a standalone `ProvisioningCipher`; only `ProvisioningChatConnection` over Signal's chat layer, which would require binding `Net` / `ConnectionManager` first) |
 | Full example playground, npm publishing | pending |
 
