@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.ts",
   "dependencies": {
-    "@op-engineering/op-sqlite": "16.2.1",
+    "@op-engineering/op-sqlite": "15.2.14",
     "expo": "~56.0.8",
     "expo-libsignal": "file:..",
     "expo-secure-store": "~56.0.4",
@@ -27,6 +27,7 @@
     }
   },
   "op-sqlite": {
-    "sqlcipher": true
+    "sqlcipher": true,
+    "sqliteFlags": "-DSQLCIPHER_CRYPTO_CC -DNDEBUG=1"
   }
 }
