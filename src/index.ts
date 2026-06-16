@@ -7,12 +7,12 @@ export { PreKeyBundle, type PreKeyBundleArgs } from './core/PreKeyBundle'
 export { PreKeyRecord } from './core/PreKeyRecord'
 export { ProtocolAddress } from './core/ProtocolAddress'
 export { PublicKey } from './core/PublicKey'
-export { SealedSender } from './core/SealedSender'
 export type {
   SealedSenderDecryptArgs,
   SealedSenderDecryptResult,
   SealedSenderEncryptArgs,
 } from './core/SealedSender'
+export { SealedSender } from './core/SealedSender'
 export { SenderCertificate } from './core/SenderCertificate'
 export { SenderKeyDistributionMessage } from './core/SenderKeyDistributionMessage'
 export { SenderKeyRecord } from './core/SenderKeyRecord'
