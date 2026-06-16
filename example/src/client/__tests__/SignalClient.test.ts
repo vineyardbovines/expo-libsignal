@@ -256,3 +256,133 @@ describe('SignalClient — sealed sender', () => {
     })
   })
 })
+
+describe('SignalClient — groups', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  test('group(distId).welcome wraps SKDM in a 1:1 envelope per member', async () => {
+    const skdmBytes = new Uint8Array([0xed, 0xed])
+    const GroupSessionBuilder = require('expo-libsignal').GroupSessionBuilder
+    GroupSessionBuilder.prototype.createSenderKeyDistributionMessage = jest.fn(
+      async () => ({
+        serialize: () => skdmBytes,
+        distributionId: () => 'dist-1',
+      }),
+    )
+    const SessionCipher = require('expo-libsignal').SessionCipher
+    SessionCipher.prototype.encrypt = jest.fn(async () => ({
+      type: 'signal',
+      serialize: () => new Uint8Array([0x77]),
+    }))
+
+    const alice = await SignalClient.open({
+      databaseName: 'a.db',
+      keyAlias: 'a.k',
+      self: { name: 'alice', deviceId: 1 },
+    })
+    const out = await alice
+      .group('11111111-2222-3333-4444-555555555555')
+      .welcome([
+        { name: 'bob', deviceId: 1 },
+        { name: 'carol', deviceId: 1 },
+      ])
+    expect(out).toHaveLength(2)
+    const first = out[0]
+    if (first === undefined) throw new Error('expected first envelope')
+    expect(first.to).toEqual({ name: 'bob', deviceId: 1 })
+    expect(first.envelope.type).toBe('sender-key-distribution')
+    if (first.envelope.type === 'sender-key-distribution') {
+      expect(first.envelope.distributionId).toBe(
+        '11111111-2222-3333-4444-555555555555',
+      )
+    }
+  })
+
+  test('group(distId).send returns a group envelope', async () => {
+    const GroupCipher = require('expo-libsignal').GroupCipher
+    GroupCipher.prototype.encrypt = jest.fn(
+      async () => new Uint8Array([0xc0, 0xff, 0xee]),
+    )
+
+    const alice = await SignalClient.open({
+      databaseName: 'a.db',
+      keyAlias: 'a.k',
+      self: { name: 'alice', deviceId: 1 },
+    })
+    const env = await alice
+      .group('11111111-2222-3333-4444-555555555555')
+      .send('hi all')
+    expect(env.type).toBe('group')
+    if (env.type === 'group') {
+      expect(env.distributionId).toBe('11111111-2222-3333-4444-555555555555')
+      expect(env.bytes).toEqual(new Uint8Array([0xc0, 0xff, 0xee]))
+      expect(env.from).toEqual({ name: 'alice', deviceId: 1 })
+    }
+  })
+
+  test('receive(sender-key-distribution) decrypts inner 1:1, processes SKDM, returns welcome', async () => {
+    const PreKeySignalMessage = require('expo-libsignal').PreKeySignalMessage
+    PreKeySignalMessage.deserialize = jest.fn(async () => {
+      throw new Error('not a preKeySignal')
+    })
+    const SignalMessage = require('expo-libsignal').SignalMessage
+    SignalMessage.deserialize = jest.fn(async (b: Uint8Array) => ({
+      serialize: () => b,
+    }))
+    const SessionCipher = require('expo-libsignal').SessionCipher
+    SessionCipher.prototype.decryptSignal = jest.fn(
+      async () => new Uint8Array([0xed, 0xed]),
+    )
+    const SenderKeyDistributionMessage =
+      require('expo-libsignal').SenderKeyDistributionMessage
+    SenderKeyDistributionMessage.deserialize = jest.fn(async () => ({
+      distributionId: () => 'dist-1',
+    }))
+    const GroupSessionBuilder = require('expo-libsignal').GroupSessionBuilder
+    GroupSessionBuilder.prototype.processSenderKeyDistributionMessage = jest.fn(
+      async () => {},
+    )
+
+    const bob = await SignalClient.open({
+      databaseName: 'b.db',
+      keyAlias: 'b.k',
+      self: { name: 'bob', deviceId: 1 },
+    })
+    const received = await bob.receive({
+      type: 'sender-key-distribution',
+      from: { name: 'alice', deviceId: 1 },
+      bytes: new Uint8Array([0x77]),
+      distributionId: 'dist-1',
+    })
+    expect(received).toEqual({
+      kind: 'group-welcome',
+      from: { name: 'alice', deviceId: 1 },
+      distributionId: 'dist-1',
+    })
+  })
+
+  test('receive(group) returns the group-message kind', async () => {
+    const GroupCipher = require('expo-libsignal').GroupCipher
+    GroupCipher.prototype.decrypt = jest.fn(
+      async () => new TextEncoder().encode('hi all'),
+    )
+
+    const bob = await SignalClient.open({
+      databaseName: 'b.db',
+      keyAlias: 'b.k',
+      self: { name: 'bob', deviceId: 1 },
+    })
+    const received = await bob.receive({
+      type: 'group',
+      from: { name: 'alice', deviceId: 1 },
+      distributionId: 'dist-1',
+      bytes: new Uint8Array([0xc0]),
+    })
+    expect(received).toEqual({
+      kind: 'group-message',
+      from: { name: 'alice', deviceId: 1 },
+      distributionId: 'dist-1',
+      plaintext: 'hi all',
+    })
+  })
+})

@@ -1,4 +1,6 @@
 import {
+  GroupCipher,
+  GroupSessionBuilder,
   IdentityKey,
   IdentityKeyPair,
   KyberPreKeyRecord,
@@ -8,6 +10,7 @@ import {
   ProtocolAddress,
   PublicKey,
   SealedSender,
+  SenderKeyDistributionMessage,
   SessionBuilder,
   SessionCipher,
   SignalMessage,
@@ -15,6 +18,7 @@ import {
 } from 'expo-libsignal'
 import type { SenderCertificate } from 'expo-libsignal'
 import { SQLCipherProtocolStore } from 'expo-libsignal/stores'
+import { SignalGroupClient } from './SignalGroupClient'
 
 // Plain-object boundary types. Apps never construct ProtocolAddress directly.
 export type Address = { name: string; deviceId: number }
@@ -111,6 +115,10 @@ export class SignalClient {
 
   async close(): Promise<void> {
     await this.store.close()
+  }
+
+  group(distributionId: string): SignalGroupClient {
+    return new SignalGroupClient(this, distributionId)
   }
 
   async publishOneTimePreKey(opts: {
@@ -290,8 +298,61 @@ export class SignalClient {
         sealed: false,
       }
     }
+    if (envelope.type === 'sender-key-distribution') {
+      const remoteAddress = await ProtocolAddress.create(
+        envelope.from.name,
+        envelope.from.deviceId,
+      )
+      const cipher = new SessionCipher(
+        {
+          sessionStore: this.store,
+          identityStore: this.store,
+          preKeyStore: this.store,
+          signedPreKeyStore: this.store,
+          kyberPreKeyStore: this.store,
+        },
+        remoteAddress,
+        this.self,
+      )
+      let inner: Uint8Array
+      try {
+        const msg = await PreKeySignalMessage.deserialize(envelope.bytes)
+        inner = await this.store.runExclusive(() =>
+          cipher.decryptPreKeySignal(msg),
+        )
+      } catch {
+        const msg = await SignalMessage.deserialize(envelope.bytes)
+        inner = await this.store.runExclusive(() => cipher.decryptSignal(msg))
+      }
+      const skdm = await SenderKeyDistributionMessage.deserialize(inner)
+      const builder = new GroupSessionBuilder(this.store)
+      await this.store.runExclusive(() =>
+        builder.processSenderKeyDistributionMessage(remoteAddress, skdm),
+      )
+      return {
+        kind: 'group-welcome',
+        from: envelope.from,
+        distributionId: skdm.distributionId(),
+      }
+    }
+    if (envelope.type === 'group') {
+      const remoteAddress = await ProtocolAddress.create(
+        envelope.from.name,
+        envelope.from.deviceId,
+      )
+      const cipher = new GroupCipher(this.store, remoteAddress)
+      const plaintext = await this.store.runExclusive(() =>
+        cipher.decrypt(envelope.distributionId, envelope.bytes),
+      )
+      return {
+        kind: 'group-message',
+        from: envelope.from,
+        distributionId: envelope.distributionId,
+        plaintext: new TextDecoder().decode(plaintext),
+      }
+    }
     throw new Error(
-      `SignalClient.receive: unsupported envelope type ${envelope.type}`,
+      `SignalClient.receive: unsupported envelope type ${(envelope as Envelope).type}`,
     )
   }
 }
