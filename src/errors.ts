@@ -27,6 +27,13 @@ export class SessionNotFoundError extends LibsignalError {
   }
 }
 
+export class SenderKeyNotFoundError extends LibsignalError {
+  constructor(message: string) {
+    super(message)
+    this.name = 'SenderKeyNotFoundError'
+  }
+}
+
 export class InvalidKeyError extends LibsignalError {
   constructor(message: string) {
     super(message)
@@ -73,4 +80,20 @@ const ERROR_REGISTRY: Record<string, new (msg: string) => LibsignalError> = {
 export function fromNative(payload: NativeErrorPayload): LibsignalError {
   const Ctor = ERROR_REGISTRY[payload.kind] ?? LibsignalError
   return new Ctor(payload.message)
+}
+
+/**
+ * Coerce an error thrown from a native op into a typed LibsignalError when it
+ * carries a `kind` tag. Falls back to the original Error otherwise. Mirrors
+ * the local helper in SessionCipher / SessionBuilder; lifted here so the new
+ * Group* classes can share it.
+ */
+export function rethrowAsLibsignal(e: unknown): Error {
+  if (e instanceof Error && 'kind' in e) {
+    return fromNative({
+      kind: (e as { kind?: string }).kind ?? 'Generic',
+      message: e.message,
+    })
+  }
+  return e instanceof Error ? e : new Error(String(e))
 }
