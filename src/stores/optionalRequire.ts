@@ -1,7 +1,7 @@
 import { StoreError } from '../errors'
-import type { OpSqliteModule } from './opSqliteTypes'
+import type { SqlModule } from './sqlTypes'
 
-// op-sqlite and expo-secure-store are optional peer dependencies, resolved
+// expo-sqlite and expo-secure-store are optional peer dependencies, resolved
 // lazily so the main package entry never references them. This module is only
 // reachable from the 'expo-libsignal/stores' subpath.
 declare const require: (id: string) => unknown
@@ -13,13 +13,13 @@ export interface SecureStoreModule {
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: number
 }
 
-export function requireOpSqlite(): OpSqliteModule {
+export function requireExpoSqlite(): SqlModule {
   try {
-    return require('@op-engineering/op-sqlite') as OpSqliteModule
+    return require('expo-sqlite') as SqlModule
   } catch {
     throw new StoreError(
-      "SQLCipherProtocolStore requires '@op-engineering/op-sqlite'. Install it and add " +
-        '{ "op-sqlite": { "sqlcipher": true } } to your app package.json, then rebuild.',
+      "SQLCipherProtocolStore requires 'expo-sqlite'. Install it and add " +
+        '{ "useSQLCipher": true } to the expo-sqlite plugin in your app.json, then rebuild.',
     )
   }
 }

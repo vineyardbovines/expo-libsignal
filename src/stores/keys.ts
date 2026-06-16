@@ -10,9 +10,9 @@ export interface ResolveKeyOptions {
 
 // The SQLCipher key: 32 random bytes from the OS CSPRNG, hex-encoded, stored
 // in the platform keychain/keystore via expo-secure-store. The hex string is
-// passed to op-sqlite's encryptionKey, i.e. SQLCipher passphrase semantics
-// (the KDF runs over a string carrying 256 bits of entropy). A keyProvider
-// bypasses secure-store for passphrase-derived keys.
+// fed to `PRAGMA key` as a SQLCipher passphrase (PBKDF2 runs over a string
+// carrying 256 bits of entropy). A keyProvider bypasses secure-store for
+// passphrase-derived keys.
 export async function resolveDatabaseKey(options: ResolveKeyOptions): Promise<string> {
   if (options.keyProvider) {
     const key = await options.keyProvider()

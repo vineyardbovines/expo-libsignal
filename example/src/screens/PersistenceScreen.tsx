@@ -1,5 +1,5 @@
-import { open as openOpSqlite } from '@op-engineering/op-sqlite'
 import * as SecureStore from 'expo-secure-store'
+import * as SQLite from 'expo-sqlite'
 import {
   IdentityKeyPair,
   KyberPreKeyRecord,
@@ -49,15 +49,14 @@ async function openPersona(name: string): Promise<PersistedPersona> {
 
 // Best-effort cleanup when SQLCipherProtocolStore.open() throws (corrupt
 // file, mismatched cipher params, schema-too-new, etc.) and the
-// store-mediated wipe can't run. op-sqlite's instance delete() removes the
-// db file without ever issuing a query, so a no-key handle is enough.
+// store-mediated wipe can't run. expo-sqlite's deleteDatabaseAsync removes
+// the db file without opening it, so no key is needed.
 async function forceWipePersona(name: string): Promise<string | null> {
   let detail: string | null = null
   try {
-    const db = openOpSqlite({ name: personaDb(name) })
-    db.delete()
+    await SQLite.deleteDatabaseAsync(personaDb(name))
   } catch (e) {
-    detail = `op-sqlite delete failed: ${String(e)}`
+    detail = `expo-sqlite delete failed: ${String(e)}`
   }
   try {
     const alias = personaKeyAlias(name)
@@ -296,7 +295,7 @@ export default function PersistenceScreen() {
         const forceDetail = await forceWipePersona(name)
         results.push({
           label: `force-wiped ${name}`,
-          detail: `open() threw (${String(openErr)}); fell back to op-sqlite delete${
+          detail: `open() threw (${String(openErr)}); fell back to expo-sqlite delete${
             forceDetail ? `; ${forceDetail}` : ''
           }`,
           ok: forceDetail === null,

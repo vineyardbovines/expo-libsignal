@@ -67,25 +67,7 @@ target 'expolibsignalexample' do
       :ccache_enabled => ccache_enabled?(podfile_properties),
     )
 
-    # expo-libsignal: scope SQLCipher backend flags to op-sqlite pod (iOS only).
-    # -DSQLCIPHER_CRYPTO_CC routes SQLCipher through Apple's CommonCrypto
-    # instead of OpenSSL (the OpenSSL backend hangs on the first
-    # sqlcipher_page_hmac inside iOS Simulator). -DNDEBUG=1 is what SQLite's
-    # amalgamation expects in non-debug builds (Xcode Debug doesn't set it).
-    # These are injected here rather than via package.json's `sqliteFlags` so
-    # they never reach Android's NDK build (CommonCrypto.h doesn't exist there).
-    installer.pods_project.targets.each do |t|
-      next unless t.name == 'op-sqlite'
-      t.build_configurations.each do |config|
-        cflags = config.build_settings['OTHER_CFLAGS']
-        cflags = ['$(inherited)'] if cflags.nil? || cflags.empty?
-        cflags = [cflags] if cflags.is_a?(String)
-        cflags += ['-DSQLCIPHER_CRYPTO_CC', '-DNDEBUG=1']
-        config.build_settings['OTHER_CFLAGS'] = cflags
-      end
-    end
-
-      # expo-libsignal: link FFI into consumer targets
+    # expo-libsignal: link FFI into consumer targets
     installer.aggregate_targets.each do |aggregate_target|
       aggregate_target.user_build_configurations.each do |config_name, _|
         xcconfig_path = aggregate_target.xcconfig_path(config_name)

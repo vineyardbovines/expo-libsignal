@@ -17,15 +17,13 @@ import type {
 } from '../core/stores'
 import { InvalidKeyError, StoreError } from '../errors'
 import { deleteDatabaseKey, resolveDatabaseKey } from './keys'
-import type { SqlDatabase, SqlScalar } from './opSqliteTypes'
-import { requireOpSqlite } from './optionalRequire'
+import { requireExpoSqlite } from './optionalRequire'
 import { runMigrations } from './schema'
+import type { SqlDatabase, SqlModule } from './sqlTypes'
 
 export interface SQLCipherStoreOptions {
   /** Database file name. Default 'expo-libsignal.db'. */
   databaseName?: string
-  /** op-sqlite location passthrough (directory). Default: op-sqlite's default. */
-  location?: string
   /** Secure-store entry (and keychainService) for the database key. Default 'expo-libsignal.dbkey'. */
   keyAlias?: string
   /** Supplies the SQLCipher passphrase directly, bypassing secure-store. */
@@ -34,7 +32,10 @@ export interface SQLCipherStoreOptions {
   keychainAccessible?: number
 }
 
-function toBytes(value: SqlScalar | undefined): Uint8Array {
+// expo-sqlite returns BLOB columns as Uint8Array; defensively unwrap views/buffers
+// from anyone who pre-processed the row.
+function toBytes(value: unknown): Uint8Array {
+  if (value instanceof Uint8Array) return value
   if (value instanceof ArrayBuffer) return new Uint8Array(value)
   if (ArrayBuffer.isView(value)) {
     return new Uint8Array(value.buffer, value.byteOffset, value.byteLength)
@@ -48,9 +49,15 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
   return true
 }
 
+// SQLCipher's PRAGMA key takes a string. We use single-quote doubling to be
+// SQL-injection safe even though resolveDatabaseKey only returns hex.
+function escapeSql(s: string): string {
+  return s.replace(/'/g, "''")
+}
+
 /**
  * Default SQLCipher-backed implementation of all five store interfaces over
- * one op-sqlite database. Stores are pluggable: this class is one
+ * one expo-sqlite database. Stores are pluggable: this class is one
  * implementation of the interfaces, not a requirement.
  *
  * Concurrency: wrap each protocol operation (processPreKeyBundle, encrypt,
@@ -68,12 +75,22 @@ export class SQLCipherProtocolStore
     SenderKeyStore
 {
   private readonly db: SqlDatabase
+  private readonly sqlite: SqlModule
+  private readonly databaseName: string
   private readonly keyAlias: string
   private readonly usedKeyProvider: boolean
   private queue: Promise<unknown> = Promise.resolve()
 
-  private constructor(db: SqlDatabase, keyAlias: string, usedKeyProvider: boolean) {
+  private constructor(
+    db: SqlDatabase,
+    sqlite: SqlModule,
+    databaseName: string,
+    keyAlias: string,
+    usedKeyProvider: boolean,
+  ) {
     this.db = db
+    this.sqlite = sqlite
+    this.databaseName = databaseName
     this.keyAlias = keyAlias
     this.usedKeyProvider = usedKeyProvider
   }
@@ -86,46 +103,55 @@ export class SQLCipherProtocolStore
       keyProvider: options.keyProvider,
       keychainAccessible: options.keychainAccessible,
     })
-    const opSqlite = requireOpSqlite()
-    const db = opSqlite.open({
-      name: databaseName,
-      ...(options.location === undefined ? {} : { location: options.location }),
-      encryptionKey: key,
-    })
+    const SQLite = requireExpoSqlite()
+    const db = await SQLite.openDatabaseAsync(databaseName)
     try {
-      const cipher = await db.execute('PRAGMA cipher_version')
-      if (cipher.rows.length === 0) {
+      // PRAGMA key must be the first statement against the database. SQLCipher
+      // derives the AES key from the passphrase via PBKDF2.
+      await db.execAsync(`PRAGMA key = '${escapeSql(key)}'`)
+      const cipher = await db.getFirstAsync<{ cipher_version: string | null }>(
+        'PRAGMA cipher_version',
+      )
+      if (cipher === null || cipher.cipher_version === null) {
         throw new StoreError(
-          'op-sqlite was built without SQLCipher; the database would not be encrypted. ' +
-            'Add { "op-sqlite": { "sqlcipher": true } } to your app package.json and rebuild.',
+          'expo-sqlite was built without SQLCipher; the database would not be encrypted. ' +
+            'Add { "useSQLCipher": true } to the expo-sqlite plugin in your app.json and rebuild.',
         )
       }
       try {
-        await db.execute('SELECT count(*) FROM sqlite_master')
+        await db.getFirstAsync('SELECT count(*) FROM sqlite_master')
       } catch (e) {
         throw new StoreError(`cannot read database (wrong key or corrupted file): ${String(e)}`)
       }
-      await db.execute('PRAGMA journal_mode = WAL')
+      await db.execAsync('PRAGMA journal_mode = WAL')
       await runMigrations(db)
     } catch (e) {
-      db.close()
+      await db.closeAsync()
       throw e
     }
-    return new SQLCipherProtocolStore(db, keyAlias, options.keyProvider !== undefined)
+    return new SQLCipherProtocolStore(
+      db,
+      SQLite,
+      databaseName,
+      keyAlias,
+      options.keyProvider !== undefined,
+    )
   }
 
   // Local identity bootstrap
 
   async hasLocalIdentity(): Promise<boolean> {
-    const res = await this.db.execute('SELECT 1 FROM local_identity WHERE id = 1')
-    return res.rows.length > 0
+    const row = await this.db.getFirstAsync<{ '1': number }>(
+      'SELECT 1 FROM local_identity WHERE id = 1',
+    )
+    return row !== null
   }
 
   async initializeLocalIdentity(identity: IdentityKeyPair, registrationId: number): Promise<void> {
     if (await this.hasLocalIdentity()) {
       throw new StoreError('local identity already initialized; wipe() the store to replace it')
     }
-    await this.db.execute(
+    await this.db.runAsync(
       'INSERT INTO local_identity (id, key_pair, registration_id) VALUES (1, ?, ?)',
       [identity.serialize(), registrationId],
     )
@@ -134,18 +160,20 @@ export class SQLCipherProtocolStore
   // IdentityKeyStore
 
   async getIdentityKeyPair(): Promise<IdentityKeyPair> {
-    const res = await this.db.execute('SELECT key_pair FROM local_identity WHERE id = 1')
-    const row = res.rows[0]
-    if (row === undefined) {
+    const row = await this.db.getFirstAsync<{ key_pair: unknown }>(
+      'SELECT key_pair FROM local_identity WHERE id = 1',
+    )
+    if (row === null) {
       throw new StoreError('local identity not initialized; call initializeLocalIdentity() first')
     }
     return IdentityKeyPair.deserialize(toBytes(row.key_pair))
   }
 
   async getLocalRegistrationId(): Promise<number> {
-    const res = await this.db.execute('SELECT registration_id FROM local_identity WHERE id = 1')
-    const row = res.rows[0]
-    if (row === undefined) {
+    const row = await this.db.getFirstAsync<{ registration_id: number }>(
+      'SELECT registration_id FROM local_identity WHERE id = 1',
+    )
+    if (row === null) {
       throw new StoreError('local identity not initialized; call initializeLocalIdentity() first')
     }
     return Number(row.registration_id)
@@ -157,16 +185,15 @@ export class SQLCipherProtocolStore
     const keyBytes = key.serialize()
     const now = Date.now()
     let change: IdentityChange = 'newOrUnchanged'
-    await this.db.transaction(async (tx) => {
-      const existing = await tx.execute(
+    await this.db.withTransactionAsync(async () => {
+      const existing = await this.db.getFirstAsync<{ identity_key: unknown }>(
         'SELECT identity_key FROM trusted_identities WHERE name = ? AND device_id = ?',
         [name, deviceId],
       )
-      const existingRow = existing.rows[0]
-      if (existingRow !== undefined && !bytesEqual(toBytes(existingRow.identity_key), keyBytes)) {
+      if (existing !== null && !bytesEqual(toBytes(existing.identity_key), keyBytes)) {
         change = 'replacedExisting'
       }
-      await tx.execute(
+      await this.db.runAsync(
         'INSERT INTO trusted_identities (name, device_id, identity_key, first_seen_at, updated_at) ' +
           'VALUES (?, ?, ?, ?, ?) ' +
           'ON CONFLICT(name, device_id) DO UPDATE SET identity_key = excluded.identity_key, updated_at = excluded.updated_at',
@@ -188,29 +215,27 @@ export class SQLCipherProtocolStore
   }
 
   async getIdentity(address: ProtocolAddress): Promise<IdentityKey | null> {
-    const res = await this.db.execute(
+    const row = await this.db.getFirstAsync<{ identity_key: unknown }>(
       'SELECT identity_key FROM trusted_identities WHERE name = ? AND device_id = ?',
       [address.name(), address.deviceId()],
     )
-    const row = res.rows[0]
-    if (row === undefined) return null
+    if (row === null) return null
     return IdentityKey.deserialize(toBytes(row.identity_key))
   }
 
   // SessionStore
 
   async loadSession(address: ProtocolAddress): Promise<SessionRecord | null> {
-    const res = await this.db.execute(
+    const row = await this.db.getFirstAsync<{ record: unknown }>(
       'SELECT record FROM sessions WHERE name = ? AND device_id = ?',
       [address.name(), address.deviceId()],
     )
-    const row = res.rows[0]
-    if (row === undefined) return null
+    if (row === null) return null
     return SessionRecord.deserialize(toBytes(row.record))
   }
 
   async storeSession(address: ProtocolAddress, record: SessionRecord): Promise<void> {
-    await this.db.execute(
+    await this.db.runAsync(
       'INSERT INTO sessions (name, device_id, record, updated_at) VALUES (?, ?, ?, ?) ' +
         'ON CONFLICT(name, device_id) DO UPDATE SET record = excluded.record, updated_at = excluded.updated_at',
       [address.name(), address.deviceId(), record.serialize(), Date.now()],
@@ -220,44 +245,52 @@ export class SQLCipherProtocolStore
   // PreKeyStore
 
   async loadPreKey(id: number): Promise<PreKeyRecord> {
-    const res = await this.db.execute('SELECT record FROM prekeys WHERE id = ?', [id])
-    const row = res.rows[0]
-    if (row === undefined) throw new InvalidKeyError(`no prekey with id ${id}`)
+    const row = await this.db.getFirstAsync<{ record: unknown }>(
+      'SELECT record FROM prekeys WHERE id = ?',
+      [id],
+    )
+    if (row === null) throw new InvalidKeyError(`no prekey with id ${id}`)
     return PreKeyRecord.deserialize(toBytes(row.record))
   }
 
   async loadPreKeys(): Promise<PreKeyRecord[]> {
-    const res = await this.db.execute('SELECT record FROM prekeys ORDER BY id')
-    return Promise.all(res.rows.map((row) => PreKeyRecord.deserialize(toBytes(row.record))))
+    const rows = await this.db.getAllAsync<{ record: unknown }>(
+      'SELECT record FROM prekeys ORDER BY id',
+    )
+    return Promise.all(rows.map((row) => PreKeyRecord.deserialize(toBytes(row.record))))
   }
 
   async storePreKey(id: number, record: PreKeyRecord): Promise<void> {
-    await this.db.execute(
+    await this.db.runAsync(
       'INSERT INTO prekeys (id, record) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET record = excluded.record',
       [id, record.serialize()],
     )
   }
 
   async removePreKey(id: number): Promise<void> {
-    await this.db.execute('DELETE FROM prekeys WHERE id = ?', [id])
+    await this.db.runAsync('DELETE FROM prekeys WHERE id = ?', [id])
   }
 
   // SignedPreKeyStore
 
   async loadSignedPreKey(id: number): Promise<SignedPreKeyRecord> {
-    const res = await this.db.execute('SELECT record FROM signed_prekeys WHERE id = ?', [id])
-    const row = res.rows[0]
-    if (row === undefined) throw new InvalidKeyError(`no signed prekey with id ${id}`)
+    const row = await this.db.getFirstAsync<{ record: unknown }>(
+      'SELECT record FROM signed_prekeys WHERE id = ?',
+      [id],
+    )
+    if (row === null) throw new InvalidKeyError(`no signed prekey with id ${id}`)
     return SignedPreKeyRecord.deserialize(toBytes(row.record))
   }
 
   async loadSignedPreKeys(): Promise<SignedPreKeyRecord[]> {
-    const res = await this.db.execute('SELECT record FROM signed_prekeys ORDER BY id')
-    return Promise.all(res.rows.map((row) => SignedPreKeyRecord.deserialize(toBytes(row.record))))
+    const rows = await this.db.getAllAsync<{ record: unknown }>(
+      'SELECT record FROM signed_prekeys ORDER BY id',
+    )
+    return Promise.all(rows.map((row) => SignedPreKeyRecord.deserialize(toBytes(row.record))))
   }
 
   async storeSignedPreKey(id: number, record: SignedPreKeyRecord): Promise<void> {
-    await this.db.execute(
+    await this.db.runAsync(
       'INSERT INTO signed_prekeys (id, record, created_at) VALUES (?, ?, ?) ' +
         'ON CONFLICT(id) DO UPDATE SET record = excluded.record',
       [id, record.serialize(), Date.now()],
@@ -267,19 +300,23 @@ export class SQLCipherProtocolStore
   // KyberPreKeyStore
 
   async loadKyberPreKey(id: number): Promise<KyberPreKeyRecord> {
-    const res = await this.db.execute('SELECT record FROM kyber_prekeys WHERE id = ?', [id])
-    const row = res.rows[0]
-    if (row === undefined) throw new InvalidKeyError(`no kyber prekey with id ${id}`)
+    const row = await this.db.getFirstAsync<{ record: unknown }>(
+      'SELECT record FROM kyber_prekeys WHERE id = ?',
+      [id],
+    )
+    if (row === null) throw new InvalidKeyError(`no kyber prekey with id ${id}`)
     return KyberPreKeyRecord.deserialize(toBytes(row.record))
   }
 
   async loadKyberPreKeys(): Promise<KyberPreKeyRecord[]> {
-    const res = await this.db.execute('SELECT record FROM kyber_prekeys ORDER BY id')
-    return Promise.all(res.rows.map((row) => KyberPreKeyRecord.deserialize(toBytes(row.record))))
+    const rows = await this.db.getAllAsync<{ record: unknown }>(
+      'SELECT record FROM kyber_prekeys ORDER BY id',
+    )
+    return Promise.all(rows.map((row) => KyberPreKeyRecord.deserialize(toBytes(row.record))))
   }
 
   async storeKyberPreKey(id: number, record: KyberPreKeyRecord): Promise<void> {
-    await this.db.execute(
+    await this.db.runAsync(
       'INSERT INTO kyber_prekeys (id, record, created_at) VALUES (?, ?, ?) ' +
         'ON CONFLICT(id) DO UPDATE SET record = excluded.record',
       [id, record.serialize(), Date.now()],
@@ -289,7 +326,7 @@ export class SQLCipherProtocolStore
   // Records the use; retention is the consumer's policy. Used records stay
   // loadable because late-arriving PreKeySignalMessages may reference them.
   async markKyberPreKeyUsed(id: number): Promise<void> {
-    await this.db.execute('UPDATE kyber_prekeys SET used_at = ? WHERE id = ?', [Date.now(), id])
+    await this.db.runAsync('UPDATE kyber_prekeys SET used_at = ? WHERE id = ?', [Date.now(), id])
   }
 
   // SenderKeyStore
@@ -298,12 +335,11 @@ export class SQLCipherProtocolStore
     sender: ProtocolAddress,
     distributionId: string,
   ): Promise<SenderKeyRecord | null> {
-    const res = await this.db.execute(
+    const row = await this.db.getFirstAsync<{ record: unknown }>(
       'SELECT record FROM sender_keys WHERE name = ? AND device_id = ? AND distribution_id = ?',
       [sender.name(), sender.deviceId(), distributionId],
     )
-    const row = res.rows[0]
-    if (row === undefined) return null
+    if (row === null) return null
     return SenderKeyRecord.deserialize(toBytes(row.record))
   }
 
@@ -312,7 +348,7 @@ export class SQLCipherProtocolStore
     distributionId: string,
     record: SenderKeyRecord,
   ): Promise<void> {
-    await this.db.execute(
+    await this.db.runAsync(
       'INSERT INTO sender_keys (name, device_id, distribution_id, record, updated_at) ' +
         'VALUES (?, ?, ?, ?, ?) ' +
         'ON CONFLICT(name, device_id, distribution_id) DO UPDATE SET record = excluded.record, updated_at = excluded.updated_at',
@@ -333,12 +369,17 @@ export class SQLCipherProtocolStore
   }
 
   async close(): Promise<void> {
-    this.db.close()
+    await this.db.closeAsync()
   }
 
   /** Delete the database file and (unless a keyProvider was used) the stored key. */
   async wipe(): Promise<void> {
-    this.db.delete()
+    try {
+      await this.db.closeAsync()
+    } catch {
+      // already closed
+    }
+    await this.sqlite.deleteDatabaseAsync(this.databaseName)
     if (!this.usedKeyProvider) {
       await deleteDatabaseKey(this.keyAlias)
     }

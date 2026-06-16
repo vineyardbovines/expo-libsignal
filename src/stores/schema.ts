@@ -1,5 +1,5 @@
 import { SchemaTooNewError } from '../errors'
-import type { SqlDatabase } from './opSqliteTypes'
+import type { SqlDatabase } from './sqlTypes'
 
 export const SCHEMA_VERSION = 2
 
@@ -64,12 +64,13 @@ export const MIGRATIONS: string[][] = [
 ]
 
 export async function runMigrations(db: SqlDatabase): Promise<void> {
-  await db.execute(
+  await db.execAsync(
     'CREATE TABLE IF NOT EXISTS schema_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)',
   )
-  const res = await db.execute("SELECT value FROM schema_meta WHERE key = 'version'")
-  const versionRow = res.rows[0]
-  const current = versionRow === undefined ? 0 : Number(versionRow.value)
+  const row = await db.getFirstAsync<{ value: string }>(
+    "SELECT value FROM schema_meta WHERE key = 'version'",
+  )
+  const current = row === null ? 0 : Number(row.value)
   if (current > SCHEMA_VERSION) {
     throw new SchemaTooNewError(
       `database schema is version ${current}, but this expo-libsignal supports up to ${SCHEMA_VERSION}; upgrade the library`,
@@ -77,11 +78,11 @@ export async function runMigrations(db: SqlDatabase): Promise<void> {
   }
   for (let v = current; v < SCHEMA_VERSION; v++) {
     const batch = MIGRATIONS[v] ?? []
-    await db.transaction(async (tx) => {
+    await db.withTransactionAsync(async () => {
       for (const stmt of batch) {
-        await tx.execute(stmt)
+        await db.execAsync(stmt)
       }
-      await tx.execute(
+      await db.runAsync(
         "INSERT INTO schema_meta (key, value) VALUES ('version', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value",
         [String(v + 1)],
       )

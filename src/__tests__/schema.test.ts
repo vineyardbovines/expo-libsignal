@@ -1,22 +1,33 @@
 import { SchemaTooNewError } from '../errors'
-import type { SqlDatabase, SqlQueryResult, SqlScalar } from '../stores/opSqliteTypes'
 import { MIGRATIONS, runMigrations, SCHEMA_VERSION } from '../stores/schema'
+import type { SqlDatabase, SqlParam } from '../stores/sqlTypes'
 
 function makeFakeDb(version: number | null) {
   const executed: string[] = []
   const db: SqlDatabase = {
-    async execute(query: string, _params?: SqlScalar[]): Promise<SqlQueryResult> {
-      executed.push(query)
-      if (query.startsWith('SELECT value FROM schema_meta')) {
-        return { rows: version === null ? [] : [{ value: String(version) }] }
+    async execAsync(source: string): Promise<void> {
+      executed.push(source)
+    },
+    async runAsync(source: string, _params?: SqlParam[]) {
+      executed.push(source)
+      return { changes: 1, lastInsertRowId: 0 }
+    },
+    async getFirstAsync<T>(source: string, _params?: SqlParam[]): Promise<T | null> {
+      executed.push(source)
+      if (source.startsWith('SELECT value FROM schema_meta')) {
+        if (version === null) return null
+        return { value: String(version) } as unknown as T
       }
-      return { rows: [] }
+      return null
     },
-    async transaction(fn) {
-      await fn({ execute: (q, p) => db.execute(q, p) })
+    async getAllAsync<T>(source: string, _params?: SqlParam[]): Promise<T[]> {
+      executed.push(source)
+      return []
     },
-    close() {},
-    delete() {},
+    async withTransactionAsync(task: () => Promise<void>): Promise<void> {
+      await task()
+    },
+    async closeAsync(): Promise<void> {},
   }
   return { db, executed }
 }

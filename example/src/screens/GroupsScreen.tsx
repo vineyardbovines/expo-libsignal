@@ -1,5 +1,5 @@
-import { open as openOpSqlite } from '@op-engineering/op-sqlite'
 import * as SecureStore from 'expo-secure-store'
+import * as SQLite from 'expo-sqlite'
 import {
   GroupCipher,
   GroupSessionBuilder,
@@ -69,10 +69,9 @@ async function openPersona(name: PersonaName): Promise<GroupPersona> {
 async function forceWipePersona(name: PersonaName): Promise<string | null> {
   let detail: string | null = null
   try {
-    const db = openOpSqlite({ name: personaDb(name) })
-    db.delete()
+    await SQLite.deleteDatabaseAsync(personaDb(name))
   } catch (e) {
-    detail = `op-sqlite delete failed: ${String(e)}`
+    detail = `expo-sqlite delete failed: ${String(e)}`
   }
   try {
     const alias = personaKeyAlias(name)
@@ -405,7 +404,7 @@ export default function GroupsScreen() {
         const forceDetail = await forceWipePersona(name)
         results.push({
           label: `force-wiped ${name}`,
-          detail: `open() threw (${String(openErr)}); fell back to op-sqlite delete${
+          detail: `open() threw (${String(openErr)}); fell back to expo-sqlite delete${
             forceDetail ? `; ${forceDetail}` : ''
           }`,
           ok: forceDetail === null,
