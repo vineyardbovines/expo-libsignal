@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import AliceBobScreen from './src/screens/AliceBobScreen'
+import GroupsScreen from './src/screens/GroupsScreen'
 import IdentityScreen from './src/screens/IdentityScreen'
 import PersistenceScreen from './src/screens/PersistenceScreen'
 
-type Tab = 'identity' | 'aliceBob' | 'persistence'
+type Tab = 'identity' | 'aliceBob' | 'persistence' | 'groups'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('identity')
@@ -14,14 +15,17 @@ export default function App() {
         <TabButton current={tab} value="identity" label="Identity" onPress={setTab} />
         <TabButton current={tab} value="aliceBob" label="Alice & Bob" onPress={setTab} />
         <TabButton current={tab} value="persistence" label="Persistence" onPress={setTab} />
+        <TabButton current={tab} value="groups" label="Groups" onPress={setTab} />
       </View>
       <View style={styles.screen}>
         {tab === 'identity' ? (
           <IdentityScreen />
         ) : tab === 'aliceBob' ? (
           <AliceBobScreen />
-        ) : (
+        ) : tab === 'persistence' ? (
           <PersistenceScreen />
+        ) : (
+          <GroupsScreen />
         )}
       </View>
     </View>
