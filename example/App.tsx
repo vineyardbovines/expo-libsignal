@@ -5,8 +5,15 @@ import GroupsScreen from './src/screens/GroupsScreen'
 import IdentityScreen from './src/screens/IdentityScreen'
 import PersistenceScreen from './src/screens/PersistenceScreen'
 import SealedSenderScreen from './src/screens/SealedSenderScreen'
+import SignalClientScreen from './src/screens/SignalClientScreen'
 
-type Tab = 'identity' | 'aliceBob' | 'persistence' | 'groups' | 'sealedSender'
+type Tab =
+  | 'identity'
+  | 'aliceBob'
+  | 'persistence'
+  | 'groups'
+  | 'sealedSender'
+  | 'signalClient'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('identity')
@@ -18,6 +25,7 @@ export default function App() {
         <TabButton current={tab} value="persistence" label="Persistence" onPress={setTab} />
         <TabButton current={tab} value="groups" label="Groups" onPress={setTab} />
         <TabButton current={tab} value="sealedSender" label="Sealed" onPress={setTab} />
+        <TabButton current={tab} value="signalClient" label="Client" onPress={setTab} />
       </View>
       <View style={styles.screen}>{renderScreen(tab)}</View>
     </View>
@@ -36,6 +44,8 @@ function renderScreen(tab: Tab) {
       return <GroupsScreen />
     case 'sealedSender':
       return <SealedSenderScreen />
+    case 'signalClient':
+      return <SignalClientScreen />
   }
 }
 
