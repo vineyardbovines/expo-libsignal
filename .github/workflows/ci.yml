@@ -37,7 +37,10 @@ jobs:
 
   build-ios-example:
     name: Build iOS example
-    runs-on: macos-14
+    # macos-15 ships Xcode 16.x by default; RN 0.85 requires Xcode 16.1+.
+    # The previous `macos-14` image only has Xcode 15.4, which `pod install`
+    # rejects with "React Native requires XCode >= 16.1. Found 15.4".
+    runs-on: macos-15
     needs: lint-and-typecheck
     env:
       # The plugin downloads the LibSignal FFI prebuild from GitHub releases
@@ -45,6 +48,14 @@ jobs:
       COCOAPODS_DISABLE_STATS: 'true'
     steps:
       - uses: actions/checkout@v4
+
+      - name: Select Xcode 16.1+
+        # macos-15 carries multiple Xcodes; force-pick a 16.x toolchain in case
+        # an older one is the default. xcode-select is sticky for the job.
+        run: |
+          ls /Applications | grep -i xcode || true
+          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort | tail -1)/Contents/Developer"
+          xcodebuild -version
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
