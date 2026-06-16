@@ -1,5 +1,15 @@
 import { requireNativeModule } from 'expo'
 
+// Per-op configuration for the sender-key (group) cipher path. Shared by
+// createSenderKeyDistributionOp / processSenderKeyDistributionOp /
+// groupEncryptOp / groupDecryptOp. The sender address is the (name, deviceId)
+// of whoever produced the SenderKey; nowMs anchors timestamping inside the op.
+export type SenderKeyOpConfig = {
+  senderName: string
+  senderDeviceId: number
+  nowMs: number
+}
+
 // Internal accessor for the native module. Consumers should import from the
 // package root, not from this file.
 //

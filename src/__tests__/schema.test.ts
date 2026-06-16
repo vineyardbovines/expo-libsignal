@@ -47,6 +47,13 @@ describe('schema', () => {
     }
   })
 
+  test('v2 creates the sender_keys table with a composite PK', () => {
+    expect(SCHEMA_VERSION).toBe(2)
+    const v2 = (MIGRATIONS[1] ?? []).join('\n')
+    expect(v2).toContain('CREATE TABLE sender_keys')
+    expect(v2).toContain('PRIMARY KEY (name, device_id, distribution_id)')
+  })
+
   test('runMigrations runs every batch on a fresh database and stamps the version', async () => {
     const { db, executed } = makeFakeDb(null)
     await runMigrations(db)

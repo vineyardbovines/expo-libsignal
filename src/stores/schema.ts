@@ -1,7 +1,7 @@
 import { SchemaTooNewError } from '../errors'
 import type { SqlDatabase } from './opSqliteTypes'
 
-export const SCHEMA_VERSION = 1
+export const SCHEMA_VERSION = 2
 
 // MIGRATIONS[n] takes the schema from version n to n + 1. Forward-only: a
 // library downgrade against a newer database throws SchemaTooNewError.
@@ -48,6 +48,18 @@ export const MIGRATIONS: string[][] = [
     )`,
     `CREATE INDEX sessions_updated_idx ON sessions(updated_at)`,
     `CREATE INDEX signed_prekeys_created_idx ON signed_prekeys(created_at)`,
+  ],
+  // v1 -> v2
+  [
+    `CREATE TABLE sender_keys (
+      name            TEXT    NOT NULL,
+      device_id       INTEGER NOT NULL,
+      distribution_id TEXT    NOT NULL,
+      record          BLOB    NOT NULL,
+      updated_at      INTEGER NOT NULL,
+      PRIMARY KEY (name, device_id, distribution_id)
+    )`,
+    `CREATE INDEX sender_keys_updated_idx ON sender_keys(updated_at)`,
   ],
 ]
 

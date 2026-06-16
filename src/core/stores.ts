@@ -2,6 +2,7 @@ import type { IdentityKey, IdentityKeyPair } from './IdentityKeyPair'
 import type { KyberPreKeyRecord } from './KyberPreKeyRecord'
 import type { PreKeyRecord } from './PreKeyRecord'
 import type { ProtocolAddress } from './ProtocolAddress'
+import type { SenderKeyRecord } from './SenderKeyRecord'
 import type { SessionRecord } from './SessionRecord'
 import type { SignedPreKeyRecord } from './SignedPreKeyRecord'
 
@@ -47,4 +48,22 @@ export interface KyberPreKeyStore {
   loadKyberPreKeys(): Promise<KyberPreKeyRecord[]>
   storeKyberPreKey(id: number, record: KyberPreKeyRecord): Promise<void>
   markKyberPreKeyUsed(id: number): Promise<void>
+}
+
+export interface SenderKeyStore {
+  /**
+   * Load the SenderKeyRecord for (sender, distributionId), or null if none.
+   * Called before encrypt/decrypt to feed the ratchet state into the native op.
+   */
+  loadSenderKey(sender: ProtocolAddress, distributionId: string): Promise<SenderKeyRecord | null>
+  /**
+   * Persist the SenderKeyRecord returned by the native op after every
+   * createSenderKeyDistributionMessage / processSenderKeyDistributionMessage /
+   * groupEncrypt / groupDecrypt call.
+   */
+  storeSenderKey(
+    sender: ProtocolAddress,
+    distributionId: string,
+    record: SenderKeyRecord,
+  ): Promise<void>
 }
