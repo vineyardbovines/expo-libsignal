@@ -86,26 +86,27 @@ export default function SignalClientScreen() {
     setRows((prev) => [...prev, row])
   }
 
-  function ship(env: Envelope, to: Address | 'group') {
+  async function ship(env: Envelope, to: Address | 'group'): Promise<void> {
     if (to === 'group') {
       // Group envelope: fan out to every other persona. The envelope `from`
       // carries the sender's UUID; map back to persona for routing.
       const senderUuid = env.type === 'group' ? env.from.name : ''
       const senderPersona = UUID_TO_PERSONA[senderUuid]
-      for (const p of PERSONAS) {
-        if (p === senderPersona) continue
-        clients.current[p]!
-          .receive(env)
-          .then((r) => recordReceive(p, r))
-          .catch((e) => appendRow({ who: p, text: `error: ${String(e)}`, kind: 'system' }))
-      }
+      await Promise.all(
+        PERSONAS.filter((p) => p !== senderPersona).map((p) =>
+          clients.current[p]!
+            .receive(env)
+            .then((r) => recordReceive(p, r))
+            .catch((e) => appendRow({ who: p, text: `error: ${String(e)}`, kind: 'system' })),
+        ),
+      )
     } else {
       const dest = UUID_TO_PERSONA[to.name]
       if (dest === undefined) {
         appendRow({ who: 'alice', text: `ship: unknown dest ${to.name}`, kind: 'system' })
         return
       }
-      clients.current[dest]!
+      await clients.current[dest]!
         .receive(env)
         .then((r) => recordReceive(dest, r))
         .catch((e) => appendRow({ who: dest, text: `error: ${String(e)}`, kind: 'system' }))
@@ -116,13 +117,13 @@ export default function SignalClientScreen() {
     if (r.kind === 'message') {
       appendRow({
         who,
-        text: `${labelOf(r.from.name)}${r.sealed ? ' (sealed)' : ''}: ${r.plaintext}`,
+        text: `${labelOf(r.from.name)} → you${r.sealed ? ' (sealed)' : ''}: ${r.plaintext}`,
         kind: 'incoming',
       })
     } else if (r.kind === 'group-message') {
       appendRow({
         who,
-        text: `${labelOf(r.from.name)} (group): ${r.plaintext}`,
+        text: `${labelOf(r.from.name)} → group: ${r.plaintext}`,
         kind: 'incoming',
       })
     } else if (r.kind === 'group-welcome') {
@@ -195,35 +196,45 @@ export default function SignalClientScreen() {
 
       // Scripted smoke
       // 4. alice -> bob plain
-      ship(await clients.current.alice!.send(addressOf('bob'), 'hi bob'), addressOf('bob'))
-      appendRow({ who: 'alice', text: '> bob: hi bob', kind: 'outgoing' })
+      await ship(await clients.current.alice!.send(addressOf('bob'), 'hi bob'), addressOf('bob'))
+      appendRow({ who: 'alice', text: 'you → bob: hi bob', kind: 'outgoing' })
 
       // 5. alice -> bob sealed
-      ship(
+      await ship(
         await clients.current.alice!.send(addressOf('bob'), 'hi bob (sealed)', { sealed: true }),
         addressOf('bob'),
       )
-      appendRow({ who: 'alice', text: '> bob (sealed): hi bob (sealed)', kind: 'outgoing' })
+      appendRow({ who: 'alice', text: 'you → bob (sealed): hi bob (sealed)', kind: 'outgoing' })
 
       // 6. bob -> alice plain
-      ship(await clients.current.bob!.send(addressOf('alice'), 'hi alice'), addressOf('alice'))
-      appendRow({ who: 'bob', text: '> alice: hi alice', kind: 'outgoing' })
+      await ship(
+        await clients.current.bob!.send(addressOf('alice'), 'hi alice'),
+        addressOf('alice'),
+      )
+      appendRow({ who: 'bob', text: 'you → alice: hi alice', kind: 'outgoing' })
 
-      // 7. Start group
-      const welcomes = await clients.current.alice!
-        .group(DISTRIBUTION_ID)
-        .welcome([addressOf('bob'), addressOf('carol')])
-      for (const w of welcomes) ship(w.envelope, w.to)
+      // 7. Start group — every persona that will SEND in the group needs to
+      // distribute their own sender key. Alice does it first, then bob, then
+      // carol. Ship each welcome to its recipient and wait for the receive
+      // before moving on so welcomes can't race with later group sends.
+      for (const sender of PERSONAS) {
+        const peers = PEERS[sender].map(addressOf)
+        const welcomes = await clients.current[sender]!.group(DISTRIBUTION_ID).welcome(peers)
+        for (const w of welcomes) await ship(w.envelope, w.to)
+      }
       setGroupStarted(true)
       appendRow({
         who: 'alice',
-        text: 'started group (sent SKDMs to bob, carol)',
+        text: 'started group (alice, bob, carol all distributed sender keys)',
         kind: 'system',
       })
 
       // 8. alice -> group
-      ship(await clients.current.alice!.group(DISTRIBUTION_ID).send('hello group'), 'group')
-      appendRow({ who: 'alice', text: '> group: hello group', kind: 'outgoing' })
+      await ship(
+        await clients.current.alice!.group(DISTRIBUTION_ID).send('hello group'),
+        'group',
+      )
+      appendRow({ who: 'alice', text: 'you → group: hello group', kind: 'outgoing' })
 
       steps.push({ label: '4. Scripted sends ok', detail: 'plain + sealed + group', ok: true })
 
@@ -270,13 +281,13 @@ export default function SignalClientScreen() {
         if (!groupStarted) return
         const env = await clients.current[p]!.group(DISTRIBUTION_ID).send(text)
         ship(env, 'group')
-        appendRow({ who: p, text: `> group: ${text}`, kind: 'outgoing' })
+        appendRow({ who: p, text: `you → group: ${text}`, kind: 'outgoing' })
       } else {
         const env = await clients.current[p]!.send(addressOf(t), text, { sealed })
         ship(env, addressOf(t))
         appendRow({
           who: p,
-          text: `> ${t}${sealed ? ' (sealed)' : ''}: ${text}`,
+          text: `you → ${t}${sealed ? ' (sealed)' : ''}: ${text}`,
           kind: 'outgoing',
         })
       }
@@ -302,7 +313,7 @@ export default function SignalClientScreen() {
               .filter((r) => r.who === p)
               .map((r, i) => (
                 <Text key={i} style={[styles.row, rowStyle(r.kind)]}>
-                  {r.kind === 'outgoing' ? '> ' : r.kind === 'incoming' ? '< ' : '- '}
+                  {r.kind === 'outgoing' ? '↑ ' : r.kind === 'incoming' ? '↓ ' : '· '}
                   {r.text}
                 </Text>
               ))}
