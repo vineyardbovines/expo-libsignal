@@ -1,11 +1,12 @@
 jest.mock('expo-libsignal/stores', () => {
-  const store = {
+  const store: Record<string, unknown> = {
     hasLocalIdentity: jest.fn(async () => false),
     initializeLocalIdentity: jest.fn(async () => {}),
     getIdentityKeyPair: jest.fn(async () => ({
       publicKey: () => ({ serialize: () => new Uint8Array([1, 2, 3]) }),
     })),
     close: jest.fn(async () => {}),
+    runExclusive: jest.fn(async (fn: () => Promise<unknown>) => fn()),
   }
   return {
     SQLCipherProtocolStore: {
@@ -87,5 +88,106 @@ describe('SignalClient — open + initialize', () => {
     })
     await client.close()
     expect(stores.__store.close).toHaveBeenCalled()
+  })
+})
+
+describe('SignalClient — 1:1 send/receive', () => {
+  beforeEach(() => jest.clearAllMocks())
+
+  test('publishOneTimePreKey persists records and returns a bundle', async () => {
+    const PreKeyRecord = require('expo-libsignal').PreKeyRecord
+    PreKeyRecord.generate = jest.fn(async () => ({
+      serialize: () => new Uint8Array([0xa]),
+      publicKey: () => ({ serialize: () => new Uint8Array([0xb]) }),
+    }))
+    const SignedPreKeyRecord = require('expo-libsignal').SignedPreKeyRecord
+    SignedPreKeyRecord.generate = jest.fn(async () => ({
+      serialize: () => new Uint8Array([0xc]),
+      publicKey: () => ({ serialize: () => new Uint8Array([0xd]) }),
+      signature: () => new Uint8Array([0xe]),
+    }))
+    const KyberPreKeyRecord = require('expo-libsignal').KyberPreKeyRecord
+    KyberPreKeyRecord.generate = jest.fn(async () => ({
+      serialize: () => new Uint8Array([0xf]),
+      kyberPublicKey: () => new Uint8Array([0x11]),
+      signature: () => new Uint8Array([0x12]),
+    }))
+    stores.__store.storePreKey = jest.fn(async () => {})
+    stores.__store.storeSignedPreKey = jest.fn(async () => {})
+    stores.__store.storeKyberPreKey = jest.fn(async () => {})
+    stores.__store.getLocalRegistrationId = jest.fn(async () => 42)
+    stores.__store.getIdentityKeyPair = jest.fn(async () => ({
+      publicKey: () => ({ serialize: () => new Uint8Array([0x99]) }),
+    }))
+
+    const client = await SignalClient.open({
+      databaseName: 'a.db',
+      keyAlias: 'a.k',
+      self: { name: 'alice', deviceId: 1 },
+    })
+    const bundle = await client.publishOneTimePreKey({
+      preKeyId: 100,
+      signedPreKeyId: 200,
+      kyberPreKeyId: 300,
+    })
+    expect(bundle.registrationId).toBe(42)
+    expect(bundle.deviceId).toBe(1)
+    expect(bundle.preKeyId).toBe(100)
+    expect(bundle.signedPreKeyId).toBe(200)
+    expect(bundle.kyberPreKeyId).toBe(300)
+    expect(stores.__store.storePreKey).toHaveBeenCalledWith(100, expect.anything())
+    expect(stores.__store.storeSignedPreKey).toHaveBeenCalledWith(200, expect.anything())
+    expect(stores.__store.storeKyberPreKey).toHaveBeenCalledWith(300, expect.anything())
+  })
+
+  test('send returns a tagged envelope and persists session state', async () => {
+    const encrypted = {
+      type: 'preKeySignal',
+      serialize: () => new Uint8Array([0xaa, 0xbb]),
+    }
+    const SessionCipher = require('expo-libsignal').SessionCipher
+    SessionCipher.prototype.encrypt = jest.fn(async () => encrypted)
+
+    const client = await SignalClient.open({
+      databaseName: 'a.db',
+      keyAlias: 'a.k',
+      self: { name: 'alice', deviceId: 1 },
+    })
+    const env = await client.send({ name: 'bob', deviceId: 1 }, 'hi')
+    expect(env.type).toBe('preKeySignal')
+    expect(env).toMatchObject({ from: { name: 'alice', deviceId: 1 } })
+    if (env.type === 'preKeySignal' || env.type === 'signal') {
+      expect(env.bytes).toEqual(new Uint8Array([0xaa, 0xbb]))
+    } else {
+      throw new Error('wrong type')
+    }
+  })
+
+  test('receive dispatches preKeySignal envelope to decryptPreKeySignal', async () => {
+    const SessionCipher = require('expo-libsignal').SessionCipher
+    SessionCipher.prototype.decryptPreKeySignal = jest.fn(async () =>
+      new TextEncoder().encode('hi'),
+    )
+    const PreKeySignalMessage = require('expo-libsignal').PreKeySignalMessage
+    PreKeySignalMessage.deserialize = jest.fn(async (b: Uint8Array) => ({
+      serialize: () => b,
+    }))
+
+    const client = await SignalClient.open({
+      databaseName: 'b.db',
+      keyAlias: 'b.k',
+      self: { name: 'bob', deviceId: 1 },
+    })
+    const received = await client.receive({
+      type: 'preKeySignal',
+      from: { name: 'alice', deviceId: 1 },
+      bytes: new Uint8Array([0xaa, 0xbb]),
+    })
+    expect(received).toEqual({
+      kind: 'message',
+      from: { name: 'alice', deviceId: 1 },
+      plaintext: 'hi',
+      sealed: false,
+    })
   })
 })
