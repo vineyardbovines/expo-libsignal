@@ -2,6 +2,17 @@
 
 Manual on-device runs of the example app's integration screens, newest first.
 
+## 2026-06-16 — Phase 4b: Sealed Sender verified on both platforms
+
+- iOS simulator (iPhone 17 Pro, iOS 26.4): pass (9 of 9 steps)
+- Android emulator (Pixel 10 AVD): pass (9 of 9 steps)
+- End-to-end: mint trust-root identity → server cert under trust root → sender cert issued to alice → alice/bob 1:1 session over PreKeyBundle → alice sealed-encrypt "hello sealed" → bob sealed-decrypt → plaintext recovered, recovered sender UUID matches the UUID baked into the cert
+- Sealed envelope size: 2123 bytes (same on both platforms, reasonable for a one-shot PreKey-wrapped payload + cert chain)
+- Two example-side bugs surfaced and fixed during smoke:
+  - `crypto.randomUUID()` is not exposed on the React Native global; the screen now inlines a tiny `randomUuidV4()` helper.
+  - The hard-coded `BOB_LOCAL_UUID = 'bob00000-...'` contained non-hex `o` characters. Java's `UUID.fromString` (called inside `SealedSessionCipher`'s ctor) rejected it with `For input string: "bob00000" under radix 16`. Foundation's `UUID(uuidString:)` is more lenient and accepted the string on iOS, masking the bug. Fixed by switching to `b0b00000-...`.
+- No library-side changes were needed for smoke — Rounds 1-3 (TS + iOS + Android) all worked first try once the screen was authored correctly.
+
 ## 2026-06-16 — Phase 4a: Sender Keys (groups) verified on both platforms
 
 - iOS simulator (iPhone 17 Pro, iOS 26.4): pass (8 of 8 steps, fresh run)
