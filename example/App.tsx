@@ -4,8 +4,9 @@ import AliceBobScreen from './src/screens/AliceBobScreen'
 import GroupsScreen from './src/screens/GroupsScreen'
 import IdentityScreen from './src/screens/IdentityScreen'
 import PersistenceScreen from './src/screens/PersistenceScreen'
+import SealedSenderScreen from './src/screens/SealedSenderScreen'
 
-type Tab = 'identity' | 'aliceBob' | 'persistence' | 'groups'
+type Tab = 'identity' | 'aliceBob' | 'persistence' | 'groups' | 'sealedSender'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('identity')
@@ -16,20 +17,26 @@ export default function App() {
         <TabButton current={tab} value="aliceBob" label="Alice & Bob" onPress={setTab} />
         <TabButton current={tab} value="persistence" label="Persistence" onPress={setTab} />
         <TabButton current={tab} value="groups" label="Groups" onPress={setTab} />
+        <TabButton current={tab} value="sealedSender" label="Sealed" onPress={setTab} />
       </View>
-      <View style={styles.screen}>
-        {tab === 'identity' ? (
-          <IdentityScreen />
-        ) : tab === 'aliceBob' ? (
-          <AliceBobScreen />
-        ) : tab === 'persistence' ? (
-          <PersistenceScreen />
-        ) : (
-          <GroupsScreen />
-        )}
-      </View>
+      <View style={styles.screen}>{renderScreen(tab)}</View>
     </View>
   )
+}
+
+function renderScreen(tab: Tab) {
+  switch (tab) {
+    case 'identity':
+      return <IdentityScreen />
+    case 'aliceBob':
+      return <AliceBobScreen />
+    case 'persistence':
+      return <PersistenceScreen />
+    case 'groups':
+      return <GroupsScreen />
+    case 'sealedSender':
+      return <SealedSenderScreen />
+  }
 }
 
 function TabButton({
