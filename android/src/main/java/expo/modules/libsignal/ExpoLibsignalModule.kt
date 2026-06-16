@@ -13,7 +13,9 @@ import org.signal.libsignal.protocol.ecc.ECPublicKey
 import org.signal.libsignal.protocol.kem.KEMKeyPair
 import org.signal.libsignal.protocol.kem.KEMKeyType
 import org.signal.libsignal.protocol.kem.KEMPublicKey
+import org.signal.libsignal.protocol.groups.state.SenderKeyRecord
 import org.signal.libsignal.protocol.message.PreKeySignalMessage
+import org.signal.libsignal.protocol.message.SenderKeyDistributionMessage
 import org.signal.libsignal.protocol.message.SignalMessage
 import org.signal.libsignal.protocol.state.KyberPreKeyRecord
 import org.signal.libsignal.protocol.state.PreKeyBundle
@@ -347,6 +349,39 @@ class ExpoLibsignalModule : Module() {
       Function("signedPreKeyId") { ref: PreKeySignalMessageRef -> ref.message.signedPreKeyId }
     }
 
+    AsyncFunction("deserializeSenderKeyRecord") Coroutine { bytes: ByteArray ->
+      try {
+        SenderKeyRecordRef(SenderKeyRecord(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    Class(SenderKeyRecordRef::class) {
+      Constructor {
+        throw IllegalStateException("SenderKeyRecordRef is not directly constructable from JS. Use SenderKeyRecord.deserialize() or get one from group ops.")
+      }
+      Function("serialize") { ref: SenderKeyRecordRef -> ref.record.serialize() }
+    }
+
+    AsyncFunction("deserializeSenderKeyDistributionMessage") Coroutine { bytes: ByteArray ->
+      try {
+        SenderKeyDistributionMessageRef(SenderKeyDistributionMessage(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    Class(SenderKeyDistributionMessageRef::class) {
+      Constructor {
+        throw IllegalStateException("SenderKeyDistributionMessageRef is not directly constructable from JS. Use SenderKeyDistributionMessage.deserialize().")
+      }
+      Function("serialize") { ref: SenderKeyDistributionMessageRef -> ref.message.serialize() }
+      Function("distributionId") { ref: SenderKeyDistributionMessageRef -> ref.message.distributionId.toString() }
+      Function("chainId") { ref: SenderKeyDistributionMessageRef -> ref.message.chainId }
+      Function("iteration") { ref: SenderKeyDistributionMessageRef -> ref.message.iteration }
+    }
+
     AsyncFunction("processPreKeyBundleOp") Coroutine { config: SessionOpConfig, bundle: PreKeyBundleRef, ourIdentityKeyPair: ByteArray, existingSession: ByteArray?, existingRemoteIdentity: ByteArray? ->
       try {
         runProcessPreKeyBundleOp(config, bundle, ourIdentityKeyPair, existingSession, existingRemoteIdentity)
@@ -374,6 +409,38 @@ class ExpoLibsignalModule : Module() {
     AsyncFunction("decryptSignalOp") Coroutine { config: SessionOpConfig, message: ByteArray, ourIdentityKeyPair: ByteArray, existingSession: ByteArray, remoteIdentity: ByteArray? ->
       try {
         runDecryptSignalOp(config, message, ourIdentityKeyPair, existingSession, remoteIdentity)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    AsyncFunction("createSenderKeyDistributionOp") Coroutine { config: SenderKeyOpConfig, distributionId: String, existingRecord: ByteArray? ->
+      try {
+        runCreateSenderKeyDistributionOp(config, distributionId, existingRecord)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    AsyncFunction("processSenderKeyDistributionOp") Coroutine { config: SenderKeyOpConfig, distributionId: String, message: ByteArray, existingRecord: ByteArray? ->
+      try {
+        runProcessSenderKeyDistributionOp(config, distributionId, message, existingRecord)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    AsyncFunction("groupEncryptOp") Coroutine { config: SenderKeyOpConfig, distributionId: String, plaintext: ByteArray, existingRecord: ByteArray ->
+      try {
+        runGroupEncryptOp(config, distributionId, plaintext, existingRecord)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    AsyncFunction("groupDecryptOp") Coroutine { config: SenderKeyOpConfig, ciphertext: ByteArray, existingRecord: ByteArray ->
+      try {
+        runGroupDecryptOp(config, ciphertext, existingRecord)
       } catch (e: Throwable) {
         throw RuntimeException(mapSignalError(e).message)
       }

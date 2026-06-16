@@ -339,6 +339,41 @@ public final class ExpoLibsignalModule: Module {
       }
     }
 
+    AsyncFunction("deserializeSenderKeyRecord") { (bytes: Data) -> SenderKeyRecordRef in
+      do {
+        let record = try SenderKeyRecord(bytes: bytes)
+        return SenderKeyRecordRef(record: record)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(SenderKeyRecordRef.self) {
+      Function("serialize") { (ref: SenderKeyRecordRef) -> Data in ref.record.serialize() }
+    }
+
+    AsyncFunction("deserializeSenderKeyDistributionMessage") { (bytes: Data) -> SenderKeyDistributionMessageRef in
+      do {
+        let msg = try SenderKeyDistributionMessage(bytes: bytes)
+        return SenderKeyDistributionMessageRef(message: msg)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    Class(SenderKeyDistributionMessageRef.self) {
+      Function("serialize") { (ref: SenderKeyDistributionMessageRef) -> Data in ref.message.serialize() }
+      Function("distributionId") { (ref: SenderKeyDistributionMessageRef) -> String in
+        return ref.message.distributionId.uuidString
+      }
+      Function("chainId") { (ref: SenderKeyDistributionMessageRef) -> UInt32 in
+        return ref.message.chainId
+      }
+      Function("iteration") { (ref: SenderKeyDistributionMessageRef) -> UInt32 in
+        return ref.message.iteration
+      }
+    }
+
     AsyncFunction("processPreKeyBundleOp") { (config: SessionOpConfig, bundle: PreKeyBundleRef, ourIdentityKeyPair: Data, existingSession: Data?, existingRemoteIdentity: Data?) -> ProcessPreKeyBundleResult in
       do {
         return try runProcessPreKeyBundleOp(
@@ -393,6 +428,38 @@ public final class ExpoLibsignalModule: Module {
           existingSession: existingSession,
           remoteIdentity: remoteIdentity
         )
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("createSenderKeyDistributionOp") { (config: SenderKeyOpConfig, distributionId: String, existingRecord: Data?) -> CreateSenderKeyDistributionResult in
+      do {
+        return try runCreateSenderKeyDistributionOp(config: config, distributionId: distributionId, existingRecord: existingRecord)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("processSenderKeyDistributionOp") { (config: SenderKeyOpConfig, distributionId: String, message: Data, existingRecord: Data?) -> ProcessSenderKeyDistributionResult in
+      do {
+        return try runProcessSenderKeyDistributionOp(config: config, distributionId: distributionId, message: message, existingRecord: existingRecord)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("groupEncryptOp") { (config: SenderKeyOpConfig, distributionId: String, plaintext: Data, existingRecord: Data) -> GroupEncryptResult in
+      do {
+        return try runGroupEncryptOp(config: config, distributionId: distributionId, plaintext: plaintext, existingRecord: existingRecord)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("groupDecryptOp") { (config: SenderKeyOpConfig, ciphertext: Data, existingRecord: Data) -> GroupDecryptResult in
+      do {
+        return try runGroupDecryptOp(config: config, ciphertext: ciphertext, existingRecord: existingRecord)
       } catch {
         throw Exception(name: "LibsignalError", description: "\(error)")
       }
