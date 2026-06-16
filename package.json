@@ -47,6 +47,9 @@
   "author": "Spencer Pope <spencerfpope@gmail.com>",
   "license": "AGPL-3.0",
   "homepage": "https://github.com/vineyardbovines/expo-libsignal#readme",
+  "engines": {
+    "node": ">=20"
+  },
   "devDependencies": {
     "@biomejs/biome": "^2.0.0",
     "@types/jest": "^29.5.12",
