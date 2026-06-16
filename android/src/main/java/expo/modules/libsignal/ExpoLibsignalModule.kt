@@ -5,6 +5,8 @@ import expo.modules.kotlin.modules.Module
 import expo.modules.kotlin.modules.ModuleDefinition
 import expo.modules.kotlin.records.Field
 import expo.modules.kotlin.records.Record
+import org.signal.libsignal.metadata.certificate.SenderCertificate
+import org.signal.libsignal.metadata.certificate.ServerCertificate
 import org.signal.libsignal.protocol.IdentityKey
 import org.signal.libsignal.protocol.IdentityKeyPair as SignalIdentityKeyPair
 import org.signal.libsignal.protocol.SignalProtocolAddress
@@ -441,6 +443,94 @@ class ExpoLibsignalModule : Module() {
     AsyncFunction("groupDecryptOp") Coroutine { config: SenderKeyOpConfig, ciphertext: ByteArray, existingRecord: ByteArray ->
       try {
         runGroupDecryptOp(config, ciphertext, existingRecord)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    AsyncFunction("deserializeServerCertificate") Coroutine { bytes: ByteArray ->
+      try {
+        ServerCertificateRef(ServerCertificate(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    Class(ServerCertificateRef::class) {
+      Constructor {
+        throw IllegalStateException(
+          "ServerCertificateRef is not directly constructable from JS. " +
+            "Use ServerCertificate.deserialize() or ServerCertificate.generate().",
+        )
+      }
+      Function("serialize") { ref: ServerCertificateRef -> ref.cert.serialized }
+      Function("keyId") { ref: ServerCertificateRef -> ref.cert.keyId }
+      Function("signature") { ref: ServerCertificateRef -> ref.cert.signature }
+      Function("key") { ref: ServerCertificateRef -> PublicKeyRef(ref.cert.key) }
+    }
+
+    AsyncFunction("deserializeSenderCertificate") Coroutine { bytes: ByteArray ->
+      try {
+        SenderCertificateRef(SenderCertificate(bytes))
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    Class(SenderCertificateRef::class) {
+      Constructor {
+        throw IllegalStateException(
+          "SenderCertificateRef is not directly constructable from JS. " +
+            "Use SenderCertificate.deserialize() or SenderCertificate.generate().",
+        )
+      }
+      Function("serialize") { ref: SenderCertificateRef -> ref.cert.serialized }
+      // Java's SenderCertificate.getSenderUuid() returns lowercase already; no
+      // case fix needed here (the iOS side lowercases because Foundation's UUID
+      // formats uppercase).
+      Function("senderUuid") { ref: SenderCertificateRef -> ref.cert.senderUuid }
+      Function("senderE164") { ref: SenderCertificateRef -> ref.cert.senderE164.orElse(null) }
+      Function("senderDeviceId") { ref: SenderCertificateRef -> ref.cert.senderDeviceId }
+      Function("expiration") { ref: SenderCertificateRef -> ref.cert.expiration.toDouble() }
+      Function("signatureKey") { ref: SenderCertificateRef -> PublicKeyRef(ref.cert.key) }
+      Function("serverCertificate") { ref: SenderCertificateRef -> ServerCertificateRef(ref.cert.signer) }
+    }
+
+    AsyncFunction("generateServerCertificateOp") Coroutine { keyId: Int, serverKey: ByteArray, trustRoot: ByteArray ->
+      try {
+        runGenerateServerCertificateOp(keyId, serverKey, trustRoot)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    AsyncFunction("generateSenderCertificateOp") Coroutine { senderUuid: String, senderE164: String?, senderDeviceId: Int, senderKey: ByteArray, expiration: Double, serverCert: ByteArray, serverPrivateKey: ByteArray ->
+      try {
+        runGenerateSenderCertificateOp(senderUuid, senderE164, senderDeviceId, senderKey, expiration, serverCert, serverPrivateKey)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    AsyncFunction("validateSenderCertificateOp") Coroutine { senderCert: ByteArray, trustRoot: ByteArray, validationTime: Double ->
+      try {
+        runValidateSenderCertificateOp(senderCert, trustRoot, validationTime)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    AsyncFunction("sealedSenderEncryptOp") Coroutine { config: SealedSenderEncryptOpConfig, senderCert: ByteArray, plaintext: ByteArray, existingSession: ByteArray, existingRemoteIdentity: ByteArray?, ourIdentityKeyPair: ByteArray ->
+      try {
+        runSealedSenderEncryptOp(config, senderCert, plaintext, existingSession, existingRemoteIdentity, ourIdentityKeyPair)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    AsyncFunction("sealedSenderDecryptOp") Coroutine { config: SealedSenderDecryptOpConfig, ciphertext: ByteArray, trustRoot: ByteArray, ourIdentityKeyPair: ByteArray, kyberPreKeys: ByteArray, preKeys: ByteArray, signedPreKeys: ByteArray ->
+      try {
+        runSealedSenderDecryptOp(config, ciphertext, trustRoot, ourIdentityKeyPair, kyberPreKeys, preKeys, signedPreKeys)
       } catch (e: Throwable) {
         throw RuntimeException(mapSignalError(e).message)
       }
