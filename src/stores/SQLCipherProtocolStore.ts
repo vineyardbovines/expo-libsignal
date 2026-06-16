@@ -226,6 +226,11 @@ export class SQLCipherProtocolStore
     return PreKeyRecord.deserialize(toBytes(row.record))
   }
 
+  async loadPreKeys(): Promise<PreKeyRecord[]> {
+    const res = await this.db.execute('SELECT record FROM prekeys ORDER BY id')
+    return Promise.all(res.rows.map((row) => PreKeyRecord.deserialize(toBytes(row.record))))
+  }
+
   async storePreKey(id: number, record: PreKeyRecord): Promise<void> {
     await this.db.execute(
       'INSERT INTO prekeys (id, record) VALUES (?, ?) ON CONFLICT(id) DO UPDATE SET record = excluded.record',
@@ -244,6 +249,11 @@ export class SQLCipherProtocolStore
     const row = res.rows[0]
     if (row === undefined) throw new InvalidKeyError(`no signed prekey with id ${id}`)
     return SignedPreKeyRecord.deserialize(toBytes(row.record))
+  }
+
+  async loadSignedPreKeys(): Promise<SignedPreKeyRecord[]> {
+    const res = await this.db.execute('SELECT record FROM signed_prekeys ORDER BY id')
+    return Promise.all(res.rows.map((row) => SignedPreKeyRecord.deserialize(toBytes(row.record))))
   }
 
   async storeSignedPreKey(id: number, record: SignedPreKeyRecord): Promise<void> {

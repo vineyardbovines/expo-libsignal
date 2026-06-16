@@ -104,11 +104,13 @@ function makeStores(opts: { existingSession?: SessionRecord | null } = {}) {
     },
     preKeyStore: {
       loadPreKey: jest.fn(async () => new PreKeyRecord(preKeyRef as never)),
+      loadPreKeys: jest.fn(async () => [new PreKeyRecord(preKeyRef as never)]),
       storePreKey: jest.fn(async () => {}),
       removePreKey: jest.fn(async () => {}),
     },
     signedPreKeyStore: {
       loadSignedPreKey: jest.fn(async () => new SignedPreKeyRecord(signedPreKeyRef as never)),
+      loadSignedPreKeys: jest.fn(async () => [new SignedPreKeyRecord(signedPreKeyRef as never)]),
       storeSignedPreKey: jest.fn(async () => {}),
     },
     kyberPreKeyStore: {

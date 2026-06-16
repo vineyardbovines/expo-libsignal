@@ -197,6 +197,12 @@ schema without a data migration path, and the release notes will say so.
 expose the kyber prekey id on `PreKeySignalMessage`, so decryption seeds all
 stored kyber prekeys and reports back the id actually used.
 
+**Breaking change (unreleased 0.x):** `PreKeyStore` gained
+`loadPreKeys(): Promise<PreKeyRecord[]>`; `SignedPreKeyStore` gained
+`loadSignedPreKeys(): Promise<SignedPreKeyRecord[]>`. Sealed Sender decrypt
+seeds every candidate prekey because the in-envelope ids only surface after
+decryption begins.
+
 Errors come back as typed subclasses of `LibsignalError`:
 
 ```typescript

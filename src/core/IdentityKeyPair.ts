@@ -1,4 +1,5 @@
 import { NativeModule } from '../ExpoLibsignalModule'
+import { PublicKey } from './PublicKey'
 
 // Native SharedObject refs. These are real JS objects whose methods come from
 // the `Class()` registrations in Swift/Kotlin — each method is auto-bound to
@@ -35,6 +36,15 @@ export class IdentityKey {
 
   serialize(): Uint8Array {
     return this.ref.serialize()
+  }
+
+  /**
+   * Re-wrap the underlying ref as a PublicKey. The libsignal IdentityKey is a
+   * tagged wrapper around an EC public key, so the ref already satisfies the
+   * PublicKey shape; this is a zero-copy view, not a re-serialization.
+   */
+  toPublicKey(): PublicKey {
+    return new PublicKey(this.ref)
   }
 
   /** @internal */

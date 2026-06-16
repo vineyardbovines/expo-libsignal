@@ -86,6 +86,10 @@ export class InMemoryProtocolStore
     return r
   }
 
+  async loadPreKeys(): Promise<PreKeyRecord[]> {
+    return [...this.preKeys.values()]
+  }
+
   async storePreKey(id: number, record: PreKeyRecord): Promise<void> {
     this.preKeys.set(id, record)
   }
@@ -100,6 +104,10 @@ export class InMemoryProtocolStore
     const r = this.signedPreKeys.get(id)
     if (r === undefined) throw new InvalidKeyError(`no signed prekey with id ${id}`)
     return r
+  }
+
+  async loadSignedPreKeys(): Promise<SignedPreKeyRecord[]> {
+    return [...this.signedPreKeys.values()]
   }
 
   async storeSignedPreKey(id: number, record: SignedPreKeyRecord): Promise<void> {

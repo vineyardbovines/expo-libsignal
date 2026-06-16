@@ -28,12 +28,24 @@ export interface SessionStore {
 
 export interface PreKeyStore {
   loadPreKey(id: number): Promise<PreKeyRecord>
+  /**
+   * Return every stored prekey. Sealed Sender decrypt seeds every candidate
+   * prekey because the in-envelope ids only surface after decryption begins.
+   * Matches upstream libsignal-java's PreKeyStore enumeration surface.
+   */
+  loadPreKeys(): Promise<PreKeyRecord[]>
   storePreKey(id: number, record: PreKeyRecord): Promise<void>
   removePreKey(id: number): Promise<void>
 }
 
 export interface SignedPreKeyStore {
   loadSignedPreKey(id: number): Promise<SignedPreKeyRecord>
+  /**
+   * Return every stored signed prekey. Sealed Sender decrypt seeds every
+   * candidate signed prekey because the in-envelope ids only surface after
+   * decryption begins.
+   */
+  loadSignedPreKeys(): Promise<SignedPreKeyRecord[]>
   storeSignedPreKey(id: number, record: SignedPreKeyRecord): Promise<void>
 }
 
