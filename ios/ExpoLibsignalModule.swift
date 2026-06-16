@@ -364,7 +364,9 @@ public final class ExpoLibsignalModule: Module {
     Class(SenderKeyDistributionMessageRef.self) {
       Function("serialize") { (ref: SenderKeyDistributionMessageRef) -> Data in ref.message.serialize() }
       Function("distributionId") { (ref: SenderKeyDistributionMessageRef) -> String in
-        return ref.message.distributionId.uuidString
+        // Foundation's UUID.uuidString is uppercase; lowercase to match
+        // Java UUID.toString() so distributionId strings are platform-agnostic.
+        return ref.message.distributionId.uuidString.lowercased()
       }
       Function("chainId") { (ref: SenderKeyDistributionMessageRef) -> UInt32 in
         return ref.message.chainId
