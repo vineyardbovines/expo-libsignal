@@ -2,6 +2,17 @@
 
 Manual on-device runs of the example app's integration screens, newest first.
 
+## 2026-06-16 — SignalClient facade demo verified on iOS Simulator
+
+- iOS simulator (iPhone 17 Pro, iOS 26.4): pass (4 of 4 scripted steps green; interactive 1:1 + sealed + group sends manually exercised)
+- Demo: `Client` tab opens three `SignalClient` instances (alice / bob / carol), each over its own SQLCipher store (`alice.client.db` / `bob.client.db` / `carol.client.db`). Mount sequence: identities → six pairwise sessions → trust-root + server cert + three sender certs → every persona welcomes the other two → alice posts the first group message. Composer per panel + persona-targeted sends with a sealed toggle remain interactive after smoke.
+- Android: smoke deferred. The Phase 4b native module is unchanged, so the same `[SIGNALCLIENT-SUMMARY]` should fire — but `npx expo run:android` is currently blocked by an upstream `sed` error in `expo-modules-jsi`'s pod build script (the same one that blocked the iOS prebuild path this session). Workaround used for iOS: skip prebuild, start Metro directly, point the already-installed dev client at it.
+- Three example-side bugs surfaced and fixed during smoke:
+  - Initial chat row format (`> bob: hi bob`) was visually ambiguous — could read as "from bob: hi bob". Switched to `↑ you → bob: ...` / `↓ alice → you: ...` so direction + sender + recipient are all explicit.
+  - Only alice was calling `group.welcome` — bob and carol therefore had no sender key for the distribution and hit `SenderKeyNotFoundError` on their own group sends. Fix: scripted mount now has every persona welcome the other two.
+  - `ship()` was fire-and-forget, so welcome SKDMs raced alice's first group encrypt; bob/carol decrypted the group message before their store knew alice's sender key. Fix: ship is now async-awaited inside the scripted flow.
+- One environment issue noted: a subagent's `bun install` (to add `@types/jest`) clobbered the workspace link to `expo-libsignal` inside `example/node_modules`, breaking the expo config plugin. Repaired by replacing the broken dir with a real symlink to the repo root. Worth pinning the workspace install pattern — `file:..` recursion was the root cause and a `bun install --force` from inside `example/` reproduces it.
+
 ## 2026-06-16 — Phase 4b: Sealed Sender verified on both platforms
 
 - iOS simulator (iPhone 17 Pro, iOS 26.4): pass (9 of 9 steps)
