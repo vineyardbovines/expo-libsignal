@@ -2,7 +2,7 @@
 
 Expo Module wrapping [signalapp/libsignal](https://github.com/signalapp/libsignal) — the Signal Protocol cryptography library — for React Native and Expo apps.
 
-**Status:** Pre-1.0. API is unstable. Not yet published to npm. Foundation (identity keys) is shipped; 1:1 messaging, groups, sealed sender, and the SQLCipher store layer are scoped for later phases.
+**Status:** Pre-1.0, not yet published to npm. The cryptographic surface is complete: identity, 1:1 messaging (X3DH + Double Ratchet + Kyber), groups (Sender Keys), sealed sender, and a default SQLCipher-backed store layer — all verified end to end on iOS Simulator and Android emulator (see `example/SMOKE_TEST_LOG.md`). Remaining work before 1.0 is packaging: npm publishing prep and the small API stabilization that goes with it.
 
 **License:** AGPL-3.0 (inherited from libsignal upstream). If you link this library into a binary you distribute, your binary must also be AGPL-3.0 or compatible. See [LICENSE](./LICENSE).
 
@@ -45,7 +45,67 @@ The plugin handles the platform-specific plumbing automatically:
 
 ## Usage
 
-Generate an identity keypair, serialize it, restore it, derive the public key:
+The library ships two layers: a set of small primitives that mirror libsignal's
+own object model (`IdentityKeyPair`, `SessionBuilder`, `SessionCipher`,
+`GroupCipher`, `SealedSender`, store interfaces) and an opinionated example
+facade (`example/src/client/SignalClient.ts`) that wraps all of them behind one
+class. Most apps will want to copy or adapt the facade; reach for the
+primitives directly when you need finer control.
+
+### The facade pattern (example/src/client/SignalClient.ts)
+
+A working three-persona chat demo lives on the `Client` tab of the example
+app. The screen opens three `SignalClient` instances (each backed by its own
+SQLCipher store), establishes 1:1 sessions, distributes group sender keys,
+mints a sealed-sender cert chain, and runs scripted plain + sealed + group
+sends — all through a unified `send` / `receive` surface:
+
+```typescript
+import { SignalClient } from './client/SignalClient'
+
+const alice = await SignalClient.open({
+  databaseName: 'alice.db',
+  keyAlias: 'alice.dbkey',
+  self: { name: 'alice-uuid', deviceId: 1 },
+})
+await alice.initializeIfNeeded({ registrationId: 12345 })
+
+// First-run: alice publishes a one-time bundle her server can hand to peers.
+const bundle = await alice.publishOneTimePreKey({
+  preKeyId: 100, signedPreKeyId: 200, kyberPreKeyId: 300,
+})
+
+// Peer's bundle arrives from the server; alice starts a session.
+await alice.startSession({ name: 'bob-uuid', deviceId: 1 }, bobsBundle)
+
+// Send. Returns a tagged envelope the app ships to its transport.
+const env = await alice.send({ name: 'bob-uuid', deviceId: 1 }, 'hello')
+// { type: 'preKeySignal' | 'signal', from: alice, bytes }
+
+// Receive. Same surface for plain, sealed, and group envelopes.
+const r = await bob.receive(env)
+// { kind: 'message', from: alice, plaintext: 'hello', sealed: false }
+
+// Sealed sender — configure once, then opt in per-send.
+alice.configureSealedSender({ trustRoot, senderCert })
+await alice.send({ name: 'bob-uuid', deviceId: 1 }, 'hello sealed', { sealed: true })
+
+// Groups — every persona that will send distributes its own sender key.
+const g = alice.group('distribution-uuid')
+const welcomes = await g.welcome([{ name: 'bob-uuid', deviceId: 1 }])
+for (const w of welcomes) ship(w.envelope, w.to)
+await g.send('hi everyone')
+```
+
+Read `example/src/client/SignalClient.ts` for the full source and
+`docs/superpowers/specs/2026-06-16-signalclient-facade-design.md` for the
+design rationale and the list of pieces that may eventually be lifted into the
+library itself.
+
+### Working with the primitives directly
+
+If you want the lower-level building blocks the facade wraps, generate an
+identity keypair, serialize it, restore it, derive the public key:
 
 ```typescript
 import { IdentityKeyPair } from 'expo-libsignal'
@@ -239,7 +299,7 @@ try {
 
 ## How it works under the hood
 
-`expo-libsignal` is a thin Expo Module that bridges libsignal's native types (`IdentityKeyPair`, eventually `SessionRecord`, `PreKeyBundle`, etc.) to JavaScript as Expo `SharedObject` instances. Each native object is GC-managed via the JSI SharedObject pattern — when the JS reference is collected, the underlying Rust handle is released by a finalizer.
+`expo-libsignal` is a thin Expo Module that bridges libsignal's native types (`IdentityKeyPair`, `SessionRecord`, `PreKeyBundle`, `SenderKeyRecord`, `SenderCertificate`, etc.) to JavaScript as Expo `SharedObject` instances. Each native object is GC-managed via the JSI SharedObject pattern — when the JS reference is collected, the underlying Rust handle is released by a finalizer.
 
 The library does not bundle a pre-built Rust FFI — it relies on Signal's official prebuilt artifacts:
 - **iOS:** `LibSignalClient` CocoaPod 0.94.4, which has a script phase that downloads `libsignal-client-ios-build-v0.94.4.tar.gz` from Signal's GitHub release.
@@ -249,7 +309,7 @@ Both are pinned by exact version. To bump libsignal, update `LIBSIGNAL_VERSION` 
 
 ## Contributing
 
-Contributions are welcome. Please open an issue first for anything beyond a small fix — the API is still in flux and we want to coordinate on direction.
+Contributions are welcome. Please open an issue first for anything beyond a small fix. The cryptographic surface is stable; the remaining moving parts are packaging (npm), an upcoming pass on whether to lift pieces of the example `SignalClient` facade into the library, and any libsignal version bumps.
 
 ## License
 
