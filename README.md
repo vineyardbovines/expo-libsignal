@@ -147,10 +147,21 @@ and SQLCipher enabled in **your app's** package.json (op-sqlite reads this
 from the app root; a library cannot set it):
 
 ```json
-"op-sqlite": { "sqlcipher": true }
+"op-sqlite": {
+  "sqlcipher": true,
+  "sqliteFlags": "-DSQLCIPHER_CRYPTO_CC -DNDEBUG=1"
+}
 ```
 
-The store refuses to open if op-sqlite was built without SQLCipher. The
+On iOS, `-DSQLCIPHER_CRYPTO_CC` routes SQLCipher through Apple's CommonCrypto
+instead of OpenSSL. The OpenSSL backend hangs on the first page-cipher HMAC
+call inside iOS Simulator; CommonCrypto is also the conventional and
+hardware-accelerated choice on Apple platforms. `-DNDEBUG=1` matches what
+SQLite's amalgamation expects in non-debug builds — without it, a clean
+rebuild of the SQLCipher amalgamation under Xcode Debug fails on
+`assert()` references to debug-only struct members. Both flags are
+no-ops on Android. The store refuses to open if op-sqlite was built
+without SQLCipher. The
 database key is 32 random bytes, hex-encoded, kept in the iOS Keychain /
 Android Keystore via expo-secure-store (`WHEN_UNLOCKED_THIS_DEVICE_ONLY` by
 default; override `keychainAccessible`, or supply your own `keyProvider`).
@@ -189,7 +200,7 @@ try {
 |---|---|
 | Foundation (identity keys) | ✅ shipped |
 | 1:1 messaging (X3DH, Double Ratchet, PreKey bundles) | ✅ shipped |
-| Default SQLCipher-backed stores | shipped (Android verified end to end; iOS Simulator blocked by an op-sqlite/SQLCipher hang on write — see `example/SMOKE_TEST_LOG.md`) |
+| Default SQLCipher-backed stores | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`; iOS requires the `sqliteFlags` shown above) |
 | Groups (Sender Keys), Sealed Sender, Provisioning | pending |
 | Ergonomic `SignalClient` facade, full example playground, npm publishing | pending |
 

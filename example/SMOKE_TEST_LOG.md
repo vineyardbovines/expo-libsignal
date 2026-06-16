@@ -2,6 +2,18 @@
 
 Manual on-device runs of the example app's integration screens, newest first.
 
+## 2026-06-16 — Phase 3: SQLCipher stores (iOS) — verified end to end
+
+- iOS simulator (iPhone 17 Pro, iOS 26.4): pass (fresh and resumed)
+- Fresh run: 9 of 9 steps green, `run=fresh`, `kyberUsedId=101` (decoy at 100 untouched)
+- Resumed run (after `simctl terminate` + relaunch): 4 of 4 steps green, `run=resumed`, first message `type=signal` (no handshake), so the session was restored from on-disk SQLCipher state
+- Alice & Bob regression: 12 of 12, kyber id mapping confirmed
+- Root cause of the previous hang: the SQLCipher amalgamation defaults to its OpenSSL crypto provider, which on iOS Simulator stalls on the first `sqlcipher_page_hmac` call (the path the wrong-key crash dump from 2026-06-15 also points at)
+- Fix lives in `example/package.json` under `op-sqlite.sqliteFlags`: `-DSQLCIPHER_CRYPTO_CC` switches SQLCipher to Apple's CommonCrypto backend; `-DNDEBUG=1` matches what SQLite's amalgamation expects in non-debug builds (Xcode Debug does not set it, op-sqlite's podspec does not set it, so a clean rebuild of `cpp/sqlcipher/sqlite3.c` was failing on `assert(EdupBuf.zEnd)` and similar)
+- Library code is unchanged; the fix is in the example app's config only
+- op-sqlite pinned to 15.2.14 to match what was actually installed and verified (package.json had drifted to 16.2.1 with no lockfile)
+- Physical iPhone run still TBD as additional ground truth
+
 ## 2026-06-15 — Phase 3: SQLCipher stores (Android)
 
 - Android emulator (Pixel 10 AVD, emulator-5554): pass (9 of 9 steps on fresh run, 4 of 4 on resumed run)

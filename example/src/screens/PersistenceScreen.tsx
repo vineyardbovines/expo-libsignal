@@ -1,3 +1,5 @@
+import { open as openOpSqlite } from '@op-engineering/op-sqlite'
+import * as SecureStore from 'expo-secure-store'
 import {
   IdentityKeyPair,
   KyberPreKeyRecord,
@@ -33,13 +35,37 @@ interface PersistedPersona {
   address: ProtocolAddress
 }
 
+const personaDb = (name: string) => `${name}.db`
+const personaKeyAlias = (name: string) => `expo-libsignal-example.${name}.dbkey`
+
 async function openPersona(name: string): Promise<PersistedPersona> {
   const store = await SQLCipherProtocolStore.open({
-    databaseName: `${name}.db`,
-    keyAlias: `expo-libsignal-example.${name}.dbkey`,
+    databaseName: personaDb(name),
+    keyAlias: personaKeyAlias(name),
   })
   const address = await ProtocolAddress.create(`${name}-persisted`, 1)
   return { store, address }
+}
+
+// Best-effort cleanup when SQLCipherProtocolStore.open() throws (corrupt
+// file, mismatched cipher params, schema-too-new, etc.) and the
+// store-mediated wipe can't run. op-sqlite's instance delete() removes the
+// db file without ever issuing a query, so a no-key handle is enough.
+async function forceWipePersona(name: string): Promise<string | null> {
+  let detail: string | null = null
+  try {
+    const db = openOpSqlite({ name: personaDb(name) })
+    db.delete()
+  } catch (e) {
+    detail = `op-sqlite delete failed: ${String(e)}`
+  }
+  try {
+    const alias = personaKeyAlias(name)
+    await SecureStore.deleteItemAsync(alias, { keychainService: alias })
+  } catch (e) {
+    detail = `${detail ? `${detail}; ` : ''}secure-store delete failed: ${String(e)}`
+  }
+  return detail
 }
 
 function cipherStores(store: SQLCipherProtocolStore) {
@@ -256,24 +282,30 @@ export default function PersistenceScreen() {
 
   async function wipe() {
     setStatus('running')
-    try {
-      const alice = await openPersona('alice')
-      await alice.store.wipe()
-      const bob = await openPersona('bob')
-      await bob.store.wipe()
-      setSteps([
-        {
-          label: 'wiped',
-          detail: 'both stores and keys deleted; re-run for a fresh handshake',
+    const results: StepResult[] = []
+    for (const name of ['alice', 'bob']) {
+      try {
+        const persona = await openPersona(name)
+        await persona.store.wipe()
+        results.push({
+          label: `wiped ${name}`,
+          detail: 'store + key deleted via SQLCipherProtocolStore.wipe()',
           ok: true,
-        },
-      ])
-      setRunKind(null)
-      setStatus('idle')
-    } catch (e) {
-      setSteps([{ label: 'wipe failed', detail: String(e), ok: false }])
-      setStatus('fail')
+        })
+      } catch (openErr) {
+        const forceDetail = await forceWipePersona(name)
+        results.push({
+          label: `force-wiped ${name}`,
+          detail: `open() threw (${String(openErr)}); fell back to op-sqlite delete${
+            forceDetail ? `; ${forceDetail}` : ''
+          }`,
+          ok: forceDetail === null,
+        })
+      }
     }
+    setSteps(results)
+    setRunKind(null)
+    setStatus(results.every((r) => r.ok) ? 'idle' : 'fail')
   }
 
   useEffect(() => {
