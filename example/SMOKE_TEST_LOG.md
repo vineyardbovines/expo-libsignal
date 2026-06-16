@@ -7,7 +7,7 @@ Manual on-device runs of the example app's integration screens, newest first.
 - iOS simulator (iPhone 17 Pro, iOS 26.4): pass (8 of 8 steps, fresh run)
 - Android emulator (Pixel 10 AVD): pass (8 of 8 steps, fresh run)
 - 3-party Alice/Bob/Carol scenario: pairwise 1:1 sessions, alice ships SKDM via 1:1 to bob and carol, both decrypt alice's group message, bob ships his own SKDM, alice and carol decrypt bob's group reply
-- Resumed-run path not yet exercised; follow-up before declaring full parity with Phase 3
+- Resumed-run path: both platforms pass (`status=ok, runKind=resumed`) after `simctl terminate` / `am force-stop` + relaunch. Sender keys round-trip from on-disk state, no handshake needed.
 - One iOS-only bug surfaced and fixed during smoke testing: `Foundation.UUID.uuidString` is uppercase, `Java.UUID.toString()` is lowercase. `SenderKeyDistributionMessage.distributionId()` returned the wrong case on iOS, so bob's `processSenderKeyDistributionMessage` keyed his stored row by uppercase while alice's `createSenderKeyDistributionMessage` keyed hers by the caller-passed lowercase. Composite-key SELECT in SQLCipher is case-sensitive — bob's row was effectively invisible to subsequent loads. Diagnosed by raw `sqlite_master` + `sender_keys` dump from a second op-sqlite connection inside the screen. Fixed by lowercasing the iOS accessor.
 
 ## 2026-06-16 — Android build regression from yesterday's iOS Sim fix, fixed
