@@ -148,19 +148,43 @@ from the app root; a library cannot set it):
 
 ```json
 "op-sqlite": {
-  "sqlcipher": true,
-  "sqliteFlags": "-DSQLCIPHER_CRYPTO_CC -DNDEBUG=1"
+  "sqlcipher": true
 }
 ```
 
-On iOS, `-DSQLCIPHER_CRYPTO_CC` routes SQLCipher through Apple's CommonCrypto
-instead of OpenSSL. The OpenSSL backend hangs on the first page-cipher HMAC
-call inside iOS Simulator; CommonCrypto is also the conventional and
-hardware-accelerated choice on Apple platforms. `-DNDEBUG=1` matches what
-SQLite's amalgamation expects in non-debug builds — without it, a clean
-rebuild of the SQLCipher amalgamation under Xcode Debug fails on
-`assert()` references to debug-only struct members. Both flags are
-no-ops on Android. The store refuses to open if op-sqlite was built
+On iOS, SQLCipher needs two extra C flags: `-DSQLCIPHER_CRYPTO_CC` routes it
+through Apple's CommonCrypto instead of OpenSSL (the OpenSSL backend hangs on
+the first page-cipher HMAC call inside iOS Simulator, and CommonCrypto is also
+the conventional and hardware-accelerated choice on Apple platforms);
+`-DNDEBUG=1` matches what SQLite's amalgamation expects in non-debug builds
+(without it, a clean rebuild of the SQLCipher amalgamation under Xcode Debug
+fails on `assert()` references to debug-only struct members).
+
+op-sqlite's package.json `sqliteFlags` knob is platform-shared — anything you
+put there is forwarded to Android's NDK clang too, and `-DSQLCIPHER_CRYPTO_CC`
+makes the SQLCipher amalgamation `#include <CommonCrypto/CommonCrypto.h>`,
+which doesn't exist on Android. Inject the flags from a CocoaPods
+`post_install` hook in your app's `ios/Podfile` instead, scoped to the
+op-sqlite pod target:
+
+```ruby
+post_install do |installer|
+  # ... existing post_install logic (Expo, React Native) ...
+  installer.pods_project.targets.each do |t|
+    next unless t.name == 'op-sqlite'
+    t.build_configurations.each do |config|
+      cflags = config.build_settings['OTHER_CFLAGS']
+      cflags = ['$(inherited)'] if cflags.nil? || cflags.empty?
+      cflags = [cflags] if cflags.is_a?(String)
+      cflags += ['-DSQLCIPHER_CRYPTO_CC', '-DNDEBUG=1']
+      config.build_settings['OTHER_CFLAGS'] = cflags
+    end
+  end
+end
+```
+
+Android uses the default OpenSSL backend op-sqlite bundles and needs no
+extra flags. The store refuses to open if op-sqlite was built
 without SQLCipher. The
 database key is 32 random bytes, hex-encoded, kept in the iOS Keychain /
 Android Keystore via expo-secure-store (`WHEN_UNLOCKED_THIS_DEVICE_ONLY` by
@@ -200,7 +224,7 @@ try {
 |---|---|
 | Foundation (identity keys) | ✅ shipped |
 | 1:1 messaging (X3DH, Double Ratchet, PreKey bundles) | ✅ shipped |
-| Default SQLCipher-backed stores | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`; iOS requires the `sqliteFlags` shown above) |
+| Default SQLCipher-backed stores | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`; iOS requires the Podfile `post_install` hook shown above) |
 | Groups (Sender Keys), Sealed Sender, Provisioning | pending |
 | Ergonomic `SignalClient` facade, full example playground, npm publishing | pending |
 

@@ -27,7 +27,6 @@
     }
   },
   "op-sqlite": {
-    "sqlcipher": true,
-    "sqliteFlags": "-DSQLCIPHER_CRYPTO_CC -DNDEBUG=1"
+    "sqlcipher": true
   }
 }

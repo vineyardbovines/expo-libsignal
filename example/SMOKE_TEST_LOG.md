@@ -2,6 +2,15 @@
 
 Manual on-device runs of the example app's integration screens, newest first.
 
+## 2026-06-16 — Android build regression from yesterday's iOS Sim fix, fixed
+
+- Yesterday's `op-sqlite.sqliteFlags` addition in `example/package.json` broke the Android build: op-sqlite's Android Gradle reads `sqliteFlags` and forwards them to NDK clang via `add_compile_options`, so `-DSQLCIPHER_CRYPTO_CC` reached the SQLCipher amalgamation, which then tried to `#include <CommonCrypto/CommonCrypto.h>` — a header that doesn't exist on Android NDK.
+- The README claim that the flags are "no-ops on Android" was wrong; verified by reading `example/node_modules/@op-engineering/op-sqlite/android/build.gradle` and `android/CMakeLists.txt`.
+- op-sqlite has no per-platform `sqliteFlags` (one key, applied to both), so the fix is to drop `sqliteFlags` from `example/package.json` and inject the iOS flags from a CocoaPods `post_install` hook in `example/ios/Podfile` scoped to the `op-sqlite` pod target only.
+- Verified after fix:
+  - iOS Simulator (iPhone 17 Pro, iOS 26.4): `BUILD SUCCEEDED` via xcodebuild; the generated `Pods.xcodeproj` target build config for op-sqlite includes `-DSQLCIPHER_CRYPTO_CC` and `-DNDEBUG=1` in `OTHER_CFLAGS` (Debug and Release).
+  - Android (Pixel 10 AVD): `BUILD SUCCESSFUL` for `:app:assembleDebug`. Android falls back to op-sqlite's default OpenSSL backend.
+
 ## 2026-06-16 — Phase 3: SQLCipher stores (iOS) — verified end to end
 
 - iOS simulator (iPhone 17 Pro, iOS 26.4): pass (fresh and resumed)
