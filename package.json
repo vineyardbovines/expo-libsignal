@@ -79,8 +79,6 @@
   "files": [
     "app.plugin.js",
     "build",
-    "stores.js",
-    "stores.d.ts",
     "ios",
     "android",
     "plugin/build",

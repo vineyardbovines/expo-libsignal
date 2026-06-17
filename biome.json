@@ -14,7 +14,7 @@
       "!ios/Pods",
       "!android/.gradle",
       "!android/build",
-      "!.eslintrc.js"
+      "!.claude"
     ]
   },
   "linter": {
