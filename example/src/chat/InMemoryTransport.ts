@@ -1,5 +1,4 @@
-import type { Envelope } from '../client/SignalClient'
-import type { Address, Transport } from './Transport'
+import type { Address, Envelope, Transport } from 'expo-libsignal'
 
 function key(a: Address): string {
   return `${a.name}.${a.deviceId}`

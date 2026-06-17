@@ -1,10 +1,4 @@
-import type { Envelope } from '../client/SignalClient'
-
-export type Address = { name: string; deviceId: number }
-
-export interface Transport {
-  /** Ship an envelope addressed to `to`. Throws if no subscriber is registered. */
-  send(to: Address, envelope: Envelope): Promise<void>
-  /** Register a callback for envelopes addressed to `self`. Returns an unsubscribe fn. */
-  subscribe(self: Address, onEnvelope: (envelope: Envelope) => void): () => void
-}
+// Thin re-export of the Transport surface lifted into the library. Kept here
+// so existing chat code can keep importing from './Transport' without churn;
+// new code should import from 'expo-libsignal' directly.
+export type { Address, Envelope, Transport } from 'expo-libsignal'

@@ -267,6 +267,48 @@ data migration path; release notes call this out when it happens. The
 library refuses to open a database whose schema is newer than what it
 understands, which keeps a downgrade from corrupting your data.
 
+### Writing your own transport
+
+The library does not move bytes; the app does. The `Transport` interface is
+the seam where your shipping mechanism (websocket, REST, push, message queue)
+plugs in:
+
+```typescript
+import type { Address, Envelope, Transport } from 'expo-libsignal'
+
+class MyWebsocketTransport implements Transport {
+  async send(to: Address, envelope: Envelope): Promise<void> {
+    // Whatever your server expects. The envelope is a tagged union:
+    // { type: 'preKeySignal' | 'signal', from: Address, bytes: Uint8Array } |
+    // { type: 'sealed', bytes: Uint8Array } |
+    // { type: 'sender-key-distribution', from, bytes, distributionId } |
+    // { type: 'group', from, distributionId, bytes }
+    this.socket.emit('envelope', { to, envelope: serialize(envelope) })
+  }
+
+  subscribe(self: Address, onEnvelope: (e: Envelope) => void): () => void {
+    const handler = (raw: unknown) => onEnvelope(deserialize(raw))
+    this.socket.on(`inbox:${self.name}.${self.deviceId}`, handler)
+    return () => this.socket.off(`inbox:${self.name}.${self.deviceId}`, handler)
+  }
+}
+```
+
+On receive, use `dispatchReceived` to route by kind without writing the
+`if/else if` chain yourself:
+
+```typescript
+import { dispatchReceived, type Received } from 'expo-libsignal'
+
+async function onInbound(received: Received) {
+  await dispatchReceived(received, {
+    message: async (m) => { /* store m.plaintext, sealed flag in your chat UI */ },
+    'group-message': async (m) => { /* same, but routed by m.distributionId */ },
+    'group-welcome': async (m) => { /* mark m.distributionId as joined */ },
+  })
+}
+```
+
 ### Implementing your own store
 
 See `src/core/stores.ts` for the interface contract. One non-obvious

@@ -1,7 +1,7 @@
+import { dispatchReceived, type Envelope, type Received, type Transport } from 'expo-libsignal'
 import { useEffect, useState } from 'react'
-import type { Envelope, Received, SignalClient } from '../client/SignalClient'
+import type { SignalClient } from '../client/SignalClient'
 import type { ChatStore, Conversation, Message } from './ChatStore'
-import type { Transport } from './Transport'
 
 export interface ChatSessionContext {
   client: SignalClient
@@ -129,24 +129,27 @@ export async function attachReceiver(
         const conversations = await ctx.store.listConversations()
         const target = pickConversationForReceived(conversations, r)
         if (target === null) return
-        if (r.kind === 'message') {
-          await ctx.store.appendMessage(target.id, {
-            direction: 'incoming',
-            from: r.from,
-            text: r.plaintext,
-            sentAt: Date.now(),
-            sealed: r.sealed,
-          })
-        } else if (r.kind === 'group-message') {
-          await ctx.store.appendMessage(target.id, {
-            direction: 'incoming',
-            from: r.from,
-            text: r.plaintext,
-            sentAt: Date.now(),
-            sealed: false,
-          })
-        }
-        // group-welcome: no-op for chat UI; the conversation already exists.
+        await dispatchReceived(r, {
+          message: async (m) => {
+            await ctx.store.appendMessage(target.id, {
+              direction: 'incoming',
+              from: m.from,
+              text: m.plaintext,
+              sentAt: Date.now(),
+              sealed: m.sealed,
+            })
+          },
+          'group-message': async (m) => {
+            await ctx.store.appendMessage(target.id, {
+              direction: 'incoming',
+              from: m.from,
+              text: m.plaintext,
+              sentAt: Date.now(),
+              sealed: false,
+            })
+          },
+          // group-welcome: no-op for chat UI; the conversation already exists.
+        })
       } catch (e) {
         console.warn('[chat] receive error', e)
       }

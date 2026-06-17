@@ -1,4 +1,6 @@
 import {
+  type Address,
+  type Envelope,
   GroupCipher,
   GroupSessionBuilder,
   IdentityKey,
@@ -9,6 +11,7 @@ import {
   PreKeySignalMessage,
   ProtocolAddress,
   PublicKey,
+  type Received,
   SealedSender,
   SenderKeyDistributionMessage,
   SessionBuilder,
@@ -20,8 +23,10 @@ import type { SenderCertificate } from 'expo-libsignal'
 import { SQLCipherProtocolStore } from 'expo-libsignal/stores'
 import { SignalGroupClient } from './SignalGroupClient'
 
-// Plain-object boundary types. Apps never construct ProtocolAddress directly.
-export type Address = { name: string; deviceId: number }
+// Re-export the boundary types so existing consumers (chat code, screens) keep
+// importing from this module. New code should import directly from
+// 'expo-libsignal'.
+export type { Address, Envelope, Received } from 'expo-libsignal'
 
 // Bundle shape an app would POST to / fetch from its server. Mirrors
 // PreKeyBundle.create args; bytes are pre-serialized so the JSON round-trips.
@@ -38,29 +43,6 @@ export type PublishedBundle = {
   preKeyId?: number
   preKeyPublic?: Uint8Array
 }
-
-// Tagged transport union. Sender produces; receiver dispatches.
-export type Envelope =
-  | { type: 'preKeySignal' | 'signal'; from: Address; bytes: Uint8Array }
-  | { type: 'sealed'; bytes: Uint8Array }
-  | {
-      type: 'sender-key-distribution'
-      from: Address
-      bytes: Uint8Array
-      distributionId: string
-    }
-  | { type: 'group'; from: Address; distributionId: string; bytes: Uint8Array }
-
-// What receive() returns. App switches on `kind`.
-export type Received =
-  | { kind: 'message'; from: Address; plaintext: string; sealed: boolean }
-  | {
-      kind: 'group-message'
-      from: Address
-      distributionId: string
-      plaintext: string
-    }
-  | { kind: 'group-welcome'; from: Address; distributionId: string }
 
 export class SignalClient {
   /** @internal */ readonly store: SQLCipherProtocolStore
