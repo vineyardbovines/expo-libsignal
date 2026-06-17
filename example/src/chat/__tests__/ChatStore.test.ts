@@ -96,12 +96,18 @@ jest.mock('expo-sqlite', () => {
     }
     return Promise.resolve(null)
   }
-  function getAllAsync<T>(sql: string) {
+  function getAllAsync<T>(sql: string, params: unknown[] = []) {
     if (sql.startsWith('SELECT * FROM conversations')) {
       return Promise.resolve(conversations.slice() as unknown as T[])
     }
     if (sql.startsWith('SELECT * FROM messages WHERE')) {
-      return Promise.resolve(messages.slice() as unknown as T[])
+      const conversationId = params[0] as string
+      const rows = messages.filter((m) => m.conversation_id === conversationId)
+      return Promise.resolve(
+        rows
+          .slice()
+          .sort((a, b) => (a.sent_at as number) - (b.sent_at as number)) as unknown as T[],
+      )
     }
     return Promise.resolve([] as T[])
   }
@@ -131,6 +137,24 @@ jest.mock('expo-sqlite', () => {
       const [sealed, id] = params as [number, string]
       const row = conversations.find((c) => c.id === id)
       if (row) row.sealed_default = sealed
+    } else if (sql.startsWith('UPDATE conversations SET last_message_at')) {
+      const [lastMessageAt, id] = params as [number, string]
+      const row = conversations.find((c) => c.id === id)
+      if (row) row.last_message_at = lastMessageAt
+    } else if (sql.startsWith('INSERT INTO messages')) {
+      const [id, conversationId, direction, fromName, fromDeviceId, text, sentAt, status, sealed] =
+        params as [string, string, string, string, number, string, number, string | null, number]
+      messages.push({
+        id,
+        conversation_id: conversationId,
+        direction,
+        from_name: fromName,
+        from_device_id: fromDeviceId,
+        text,
+        sent_at: sentAt,
+        status,
+        sealed,
+      })
     }
     return Promise.resolve({ changes: 1, lastInsertRowId: 0 })
   }
@@ -218,5 +242,54 @@ describe('ChatStore — conversations', () => {
     await store.setSealedDefault('c1', true)
     const fetched = await store.getConversation('c1')
     expect(fetched?.sealedDefault).toBe(true)
+  })
+})
+
+describe('ChatStore — messages', () => {
+  beforeEach(() => {
+    const sqlite = jest.requireMock('expo-sqlite') as { __reset: () => void }
+    sqlite.__reset()
+    jest.clearAllMocks()
+  })
+
+  test('appendMessage returns a row with a stable id and persists', async () => {
+    const store = await ChatStore.open({
+      databaseName: 'a.chat.db',
+      keyAlias: 'a.chat.key',
+    })
+    await store.createConversation({
+      id: 'c1', kind: 'direct', title: 'bob', participants: [{ name: 'bob', deviceId: 1 }],
+    })
+    const msg = await store.appendMessage('c1', {
+      direction: 'outgoing',
+      from: { name: 'alice', deviceId: 1 },
+      text: 'hi bob',
+      sentAt: 1_700_000_000_000,
+      status: 'sent',
+      sealed: false,
+    })
+    expect(msg.id).toBeDefined()
+    expect(msg.text).toBe('hi bob')
+    const all = await store.listMessages('c1')
+    expect(all).toHaveLength(1)
+    expect(all[0]?.text).toBe('hi bob')
+  })
+
+  test('listMessages returns messages in send-time order', async () => {
+    const store = await ChatStore.open({
+      databaseName: 'a.chat.db',
+      keyAlias: 'a.chat.key',
+    })
+    await store.createConversation({
+      id: 'c1', kind: 'direct', title: 'bob', participants: [{ name: 'bob', deviceId: 1 }],
+    })
+    await store.appendMessage('c1', {
+      direction: 'outgoing', from: { name: 'alice', deviceId: 1 }, text: 'first', sentAt: 100,
+    })
+    await store.appendMessage('c1', {
+      direction: 'incoming', from: { name: 'bob', deviceId: 1 }, text: 'second', sentAt: 200,
+    })
+    const rows = await store.listMessages('c1')
+    expect(rows.map((m) => m.text)).toEqual(['first', 'second'])
   })
 })

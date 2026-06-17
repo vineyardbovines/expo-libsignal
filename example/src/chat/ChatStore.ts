@@ -154,4 +154,57 @@ export class ChatStore {
       [sealed ? 1 : 0, id],
     )
   }
+
+  private rowToMessage(row: Record<string, unknown>): Message {
+    const status = row.status as 'sent' | 'delivered' | 'failed' | null | undefined
+    const base: Message = {
+      id: row.id as string,
+      conversationId: row.conversation_id as string,
+      direction: row.direction as 'outgoing' | 'incoming',
+      from: { name: row.from_name as string, deviceId: Number(row.from_device_id) },
+      text: row.text as string,
+      sentAt: Number(row.sent_at),
+      sealed: Number(row.sealed) === 1,
+    }
+    if (status !== null && status !== undefined) base.status = status
+    return base
+  }
+
+  async appendMessage(conversationId: string, msg: NewMessage): Promise<Message> {
+    // ULID-ish id derived from sentAt + random suffix; replace if a real ULID
+    // dependency lands later. Sortable by id mirrors sortable by sentAt.
+    const id =
+      msg.sentAt.toString(36).padStart(10, '0') +
+      Math.floor(Math.random() * 0xffffffff)
+        .toString(36)
+        .padStart(6, '0')
+    await this.db.runAsync(
+      'INSERT INTO messages (id, conversation_id, direction, from_name, from_device_id, ' +
+        'text, sent_at, status, sealed) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [
+        id,
+        conversationId,
+        msg.direction,
+        msg.from.name,
+        msg.from.deviceId,
+        msg.text,
+        msg.sentAt,
+        msg.status ?? null,
+        msg.sealed === true ? 1 : 0,
+      ],
+    )
+    await this.db.runAsync(
+      'UPDATE conversations SET last_message_at = ? WHERE id = ?',
+      [msg.sentAt, conversationId],
+    )
+    return { ...msg, id, conversationId, sealed: msg.sealed === true }
+  }
+
+  async listMessages(conversationId: string, limit = 200): Promise<Message[]> {
+    const rows = await this.db.getAllAsync<Record<string, unknown>>(
+      'SELECT * FROM messages WHERE conversation_id = ? ORDER BY sent_at ASC LIMIT ?',
+      [conversationId, limit],
+    )
+    return rows.map((r) => this.rowToMessage(r))
+  }
 }
