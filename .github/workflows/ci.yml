@@ -49,12 +49,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Select Xcode 16.1+
-        # macos-15 carries multiple Xcodes; force-pick a 16.x toolchain in case
-        # an older one is the default. xcode-select is sticky for the job.
+      - name: Select Xcode 16.4
+        # macos-15 carries multiple Xcodes (16.0 through 16.4 and beyond). The
+        # default is 16.0, which RN 0.85's Podfile rejects with "requires
+        # XCode >= 16.1". Pin to 16.4 — current stable 16.x line.
         run: |
-          ls /Applications | grep -i xcode || true
-          sudo xcode-select -s "$(ls -d /Applications/Xcode_16*.app 2>/dev/null | sort | tail -1)/Contents/Developer"
+          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
           xcodebuild -version
 
       - name: Setup Bun
