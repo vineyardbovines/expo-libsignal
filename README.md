@@ -1,29 +1,77 @@
 # expo-libsignal
 
-Expo Module wrapping [signalapp/libsignal](https://github.com/signalapp/libsignal) — the Signal Protocol cryptography library — for React Native and Expo apps.
+The Signal Protocol as an Expo Module for React Native apps. Identity, 1:1
+messaging (X3DH, Double Ratchet, Kyber), groups (Sender Keys), and Sealed
+Sender. Pluggable stores with a SQLCipher-backed implementation included.
 
-**Status:** Pre-1.0, not yet published to npm. The cryptographic surface is complete: identity, 1:1 messaging (X3DH + Double Ratchet + Kyber), groups (Sender Keys), sealed sender, and a default SQLCipher-backed store layer — all verified end to end on iOS Simulator and Android emulator (see `example/SMOKE_TEST_LOG.md`). Remaining work before 1.0 is packaging: npm publishing prep and the small API stabilization that goes with it.
+**License:** AGPL-3.0. Linking this into a binary makes that binary AGPL-3.0
+or compatible. See [LICENSE](./LICENSE).
 
-**License:** AGPL-3.0 (inherited from libsignal upstream). If you link this library into a binary you distribute, your binary must also be AGPL-3.0 or compatible. See [LICENSE](./LICENSE).
+**Supported runtimes:** Expo SDK 55+, React Native new architecture, iOS 15.0+,
+Android API 24+. Legacy bridge is not supported.
 
-## Supported
+## Roadmap
 
-- Expo SDK 55+
-- React Native new architecture (TurboModules / Fabric)
-- iOS 15.0+
-- Android API 24+
+| Surface | State |
+|---|---|
+| Identity (`IdentityKeyPair`, `ProtocolAddress`) | shipped |
+| 1:1 messaging (`SessionBuilder`, `SessionCipher`), X3DH, Double Ratchet, Kyber | shipped |
+| Default SQLCipher-backed store (`expo-libsignal/stores`) | shipped |
+| Groups (`GroupSessionBuilder`, `GroupCipher`, Sender Keys) | shipped |
+| Sealed Sender (`SealedSender`, `SenderCertificate`, `ServerCertificate`) | shipped |
+| Example `SignalClient` facade (in `example/src/client/`) | shipped |
+| Provisioning | deferred (no standalone primitive in libsignal 0.94.4) |
 
-Not supported (yet):
-- Web (WASM)
-- Old (legacy bridge) architecture
+## Quickstart
 
-## Installation (when published)
+Two personas exchange a message. Each holds a `SignalClient` from
+`example/src/client/SignalClient.ts`. Copy it into your app and adapt;
+this pattern will likely move into the library after some real-world
+feedback.
+
+```typescript
+import { SignalClient } from './client/SignalClient'
+
+const alice = await SignalClient.open({
+  databaseName: 'alice.db',
+  keyAlias: 'alice.dbkey',
+  self: { name: 'alice-uuid', deviceId: 1 },
+})
+await alice.initializeIfNeeded({ registrationId: 12345 })
+
+const bob = await SignalClient.open({
+  databaseName: 'bob.db',
+  keyAlias: 'bob.dbkey',
+  self: { name: 'bob-uuid', deviceId: 1 },
+})
+await bob.initializeIfNeeded({ registrationId: 67890 })
+
+// Bob publishes a one-time prekey bundle; alice consumes it to start a session.
+const bobsBundle = await bob.publishOneTimePreKey({
+  preKeyId: 100, signedPreKeyId: 200, kyberPreKeyId: 300,
+})
+await alice.startSession({ name: 'bob-uuid', deviceId: 1 }, bobsBundle)
+
+// Alice encrypts. The returned envelope is what your app ships to bob (over
+// your own transport: push, websocket, REST, whatever).
+const envelope = await alice.send({ name: 'bob-uuid', deviceId: 1 }, 'hello')
+
+// Bob decrypts whatever envelope landed.
+const received = await bob.receive(envelope)
+console.log(received.plaintext)  // 'hello'
+```
+
+A working three-persona chat demo lives on the `Client` tab of the
+example app. It exercises 1:1, sealed sender, and groups end to end on
+both platforms.
+
+## Install
 
 ```bash
 bun add expo-libsignal
 ```
 
-Add the config plugin to your `app.json` or `app.config.ts`:
+Add the config plugin to `app.json` or `app.config.ts`:
 
 ```json
 {
@@ -39,88 +87,55 @@ Then prebuild:
 bunx expo prebuild --clean
 ```
 
-The plugin handles the platform-specific plumbing automatically:
-- **iOS:** Injects the LibSignalClient pod into your Podfile (Signal hosts the podspec at their own URL, not on the CocoaPods trunk). Sets the FFI download checksum. Propagates the FFI linker flags from LibSignalClient's pod scope to your app target via `user_target_xcconfig`.
-- **Android:** Injects Signal's Maven repo (`https://build-artifacts.signal.org/libraries/maven/`) into your root `build.gradle`. Enables core library desugaring in your `app/build.gradle` so libsignal's Java 8+ APIs work on the minSdk we target (24).
+The plugin handles the platform plumbing:
+
+- **iOS** injects the `LibSignalClient` pod (Signal hosts the podspec at
+  their own URL, not the CocoaPods trunk), sets the FFI download
+  checksum, and propagates the FFI linker flags from the
+  `LibSignalClient` pod scope to your app target via
+  `user_target_xcconfig`.
+- **Android** injects Signal's Maven repository
+  (`https://build-artifacts.signal.org/libraries/maven/`) into your root
+  `build.gradle` and enables core library desugaring in your
+  `app/build.gradle` so libsignal's Java 8+ APIs work on minSdk 24.
+
+If you want the default SQLCipher-backed store, see
+[Persistence](#persistence) for the one extra step.
 
 ## Usage
 
-The library ships two layers: a set of small primitives that mirror libsignal's
-own object model (`IdentityKeyPair`, `SessionBuilder`, `SessionCipher`,
-`GroupCipher`, `SealedSender`, store interfaces) and an opinionated example
-facade (`example/src/client/SignalClient.ts`) that wraps all of them behind one
-class. Most apps will want to copy or adapt the facade; reach for the
-primitives directly when you need finer control.
+The library ships two layers. The facade in
+`example/src/client/SignalClient.ts` wraps everything (identity, 1:1,
+sealed sender, groups, persistence) behind one class. Most apps copy
+and adapt it. The primitives underneath (`SessionBuilder`,
+`SessionCipher`, `GroupCipher`, `SealedSender`, store interfaces) are
+exported from the package root for cases where you want finer control.
 
-### The facade pattern (example/src/client/SignalClient.ts)
+### Facade
 
-A working three-persona chat demo lives on the `Client` tab of the example
-app. The screen opens three `SignalClient` instances (each backed by its own
-SQLCipher store), establishes 1:1 sessions, distributes group sender keys,
-mints a sealed-sender cert chain, and runs scripted plain + sealed + group
-sends — all through a unified `send` / `receive` surface:
+See the [Quickstart](#quickstart) above and
+`example/src/screens/SignalClientScreen.tsx` for the full three-persona
+chat demo. The facade source is short, has no hidden state, and is
+meant to be read top to bottom before you copy it.
 
-```typescript
-import { SignalClient } from './client/SignalClient'
+### Primitives
 
-const alice = await SignalClient.open({
-  databaseName: 'alice.db',
-  keyAlias: 'alice.dbkey',
-  self: { name: 'alice-uuid', deviceId: 1 },
-})
-await alice.initializeIfNeeded({ registrationId: 12345 })
-
-// First-run: alice publishes a one-time bundle her server can hand to peers.
-const bundle = await alice.publishOneTimePreKey({
-  preKeyId: 100, signedPreKeyId: 200, kyberPreKeyId: 300,
-})
-
-// Peer's bundle arrives from the server; alice starts a session.
-await alice.startSession({ name: 'bob-uuid', deviceId: 1 }, bobsBundle)
-
-// Send. Returns a tagged envelope the app ships to its transport.
-const env = await alice.send({ name: 'bob-uuid', deviceId: 1 }, 'hello')
-// { type: 'preKeySignal' | 'signal', from: alice, bytes }
-
-// Receive. Same surface for plain, sealed, and group envelopes.
-const r = await bob.receive(env)
-// { kind: 'message', from: alice, plaintext: 'hello', sealed: false }
-
-// Sealed sender — configure once, then opt in per-send.
-alice.configureSealedSender({ trustRoot, senderCert })
-await alice.send({ name: 'bob-uuid', deviceId: 1 }, 'hello sealed', { sealed: true })
-
-// Groups — every persona that will send distributes its own sender key.
-const g = alice.group('distribution-uuid')
-const welcomes = await g.welcome([{ name: 'bob-uuid', deviceId: 1 }])
-for (const w of welcomes) ship(w.envelope, w.to)
-await g.send('hi everyone')
-```
-
-Read `example/src/client/SignalClient.ts` for the full source and
-`docs/superpowers/specs/2026-06-16-signalclient-facade-design.md` for the
-design rationale and the list of pieces that may eventually be lifted into the
-library itself.
-
-### Working with the primitives directly
-
-If you want the lower-level building blocks the facade wraps, generate an
-identity keypair, serialize it, restore it, derive the public key:
+If you want the lower-level building blocks the facade wraps:
 
 ```typescript
 import { IdentityKeyPair } from 'expo-libsignal'
 
-// First-run: generate a fresh identity (X25519 keypair)
+// First run: generate a fresh identity (X25519 keypair).
 const kp = await IdentityKeyPair.generate()
 
-// Serialize to bytes for storage
+// Serialize to bytes for storage.
 const serialized = kp.serialize()
-// → Uint8Array, 64 bytes (32-byte public key + 32-byte private key)
+// Uint8Array, 64 bytes (32-byte public key + 32-byte private key)
 
-// Get the public identity key (33 bytes — 1 type byte + 32 raw key)
+// Public identity key (33 bytes: 1 type byte + 32 raw key).
 const publicKey = kp.publicKey().serialize()
 
-// Restore from bytes
+// Restore.
 const restored = await IdentityKeyPair.deserialize(serialized)
 ```
 
@@ -134,7 +149,6 @@ import {
   PreKeyBundle,
 } from 'expo-libsignal'
 
-// Alice receives Bob's published PreKeyBundle and establishes a session.
 const bobAddress = await ProtocolAddress.create('bob-user-id', 1)
 const aliceAddress = await ProtocolAddress.create('alice-user-id', 1)
 
@@ -145,7 +159,6 @@ const builder = new SessionBuilder(
 )
 await builder.processPreKeyBundle(bundle)
 
-// Now Alice can encrypt to Bob.
 const cipher = new SessionCipher(
   {
     sessionStore: alice.sessionStore,
@@ -160,16 +173,24 @@ const cipher = new SessionCipher(
 const ciphertext = await cipher.encrypt(new TextEncoder().encode('hello'))
 
 if (ciphertext.type === 'preKeySignal') {
-  // First message after a session is established. Bob's side calls
+  // First message after a session is established. Bob calls
   // SessionCipher.decryptPreKeySignal on receipt.
 } else {
-  // Ongoing ratcheted message. Bob's side calls SessionCipher.decryptSignal.
+  // Ongoing ratcheted message. Bob calls SessionCipher.decryptSignal.
 }
 ```
 
+Group messaging exposes `GroupSessionBuilder` and `GroupCipher`; sealed
+sender exposes `SealedSender.encrypt` / `SealedSender.decryptMessage`.
+The shapes mirror libsignal upstream so existing protocol knowledge
+transfers.
+
+## Persistence
+
 Store implementations are pluggable. Implement the `SessionStore`,
-`IdentityKeyStore`, `PreKeyStore`, `SignedPreKeyStore`, and `KyberPreKeyStore`
-interfaces yourself, or use the default SQLCipher-backed store:
+`IdentityKeyStore`, `PreKeyStore`, `SignedPreKeyStore`,
+`KyberPreKeyStore`, and `SenderKeyStore` interfaces yourself, or use
+the default SQLCipher-backed store that ships with the library:
 
 ```typescript
 import { SQLCipherProtocolStore } from 'expo-libsignal/stores'
@@ -179,7 +200,7 @@ if (!(await store.hasLocalIdentity())) {
   await store.initializeLocalIdentity(await IdentityKeyPair.generate(), registrationId)
 }
 
-// One object implements all five interfaces.
+// One object satisfies every interface.
 const cipher = new SessionCipher(
   {
     sessionStore: store,
@@ -192,17 +213,19 @@ const cipher = new SessionCipher(
   localAddress,
 )
 
-// Wrap each protocol operation so its store reads/writes are atomic.
+// Wrap each protocol operation so its store reads and writes stay atomic.
 const ciphertext = await store.runExclusive(() => cipher.encrypt(plaintext))
 ```
 
-The default store requires two optional peer dependencies:
+### Enabling SQLCipher
+
+The store needs two peer dependencies:
 
 ```bash
 bunx expo install expo-secure-store expo-sqlite
 ```
 
-Enable SQLCipher on the expo-sqlite plugin in your `app.json`:
+Add the expo-sqlite plugin with `useSQLCipher` to your `app.json`:
 
 ```json
 {
@@ -216,87 +239,123 @@ Enable SQLCipher on the expo-sqlite plugin in your `app.json`:
 }
 ```
 
-Then prebuild:
+Prebuild:
 
 ```bash
 bunx expo prebuild --clean
 ```
 
-That swaps expo-sqlite's vendored SQLite amalgamation for the SQLCipher
-amalgamation (CommonCrypto backend on iOS, OpenSSL on Android) and adds the
-SQLite-side flags SQLCipher needs (`SQLITE_HAS_CODEC`, `NDEBUG`, etc.). No
-Podfile hook required.
+That swaps expo-sqlite's vendored SQLite amalgamation for SQLCipher's
+(CommonCrypto backend on iOS, OpenSSL on Android) and applies the
+SQLite flags SQLCipher needs (`SQLITE_HAS_CODEC`, `NDEBUG`, etc.). The
+store verifies SQLCipher is active via `PRAGMA cipher_version` after
+applying the key, and refuses to open if the encryption layer is
+missing.
 
-The store refuses to open if expo-sqlite was built without SQLCipher — it
-verifies via `PRAGMA cipher_version` after applying the key. The database
-key is 32 random bytes, hex-encoded, kept in the iOS Keychain / Android
-Keystore via expo-secure-store (`WHEN_UNLOCKED_THIS_DEVICE_ONLY` by default;
-override `keychainAccessible`, or supply your own `keyProvider`). Schema
-migrations are forward-only; during 0.x a release may change the schema
-without a data migration path, and the release notes will say so.
+### Key handling
 
-**Breaking change (unreleased 0.x):** `KyberPreKeyStore` gained
-`loadKyberPreKeys(): Promise<KyberPreKeyRecord[]>`. libsignal 0.94.4 does not
-expose the kyber prekey id on `PreKeySignalMessage`, so decryption seeds all
-stored kyber prekeys and reports back the id actually used.
+The SQLCipher key is 32 random bytes from the OS CSPRNG, hex-encoded,
+kept in the iOS Keychain or Android Keystore via expo-secure-store
+(`WHEN_UNLOCKED_THIS_DEVICE_ONLY` by default). Override
+`keychainAccessible` in the `open` options, or supply your own
+`keyProvider` to skip secure-store entirely.
 
-**Breaking change (unreleased 0.x):** `PreKeyStore` gained
-`loadPreKeys(): Promise<PreKeyRecord[]>`; `SignedPreKeyStore` gained
-`loadSignedPreKeys(): Promise<SignedPreKeyRecord[]>`. Sealed Sender decrypt
-seeds every candidate prekey because the in-envelope ids only surface after
-decryption begins.
+### Schema migrations
 
-Errors come back as typed subclasses of `LibsignalError`:
+Forward-only. During 0.x a release may change the schema without a
+data migration path; release notes call this out when it happens. The
+library refuses to open a database whose schema is newer than what it
+understands, which keeps a downgrade from corrupting your data.
+
+### Implementing your own store
+
+See `src/core/stores.ts` for the interface contract. One non-obvious
+detail: `PreKeyStore`, `SignedPreKeyStore`, and `KyberPreKeyStore`
+each need a bulk-load method (`loadPreKeys`, `loadSignedPreKeys`,
+`loadKyberPreKeys`). Sealed sender decrypt and kyber prekey
+resolution seed every candidate up front because the in-envelope ids
+only surface after decryption begins.
+
+## Errors
+
+Every error from the library extends `LibsignalError`. Specific
+subclasses let callers act on the cause without parsing strings:
+
+| Class | Cause |
+|---|---|
+| `UntrustedIdentityError` | Remote identity changed and the store rejected it. |
+| `SessionNotFoundError` | Tried to encrypt or fetch a session that does not exist. |
+| `SenderKeyNotFoundError` | Group encrypt or decrypt with no SKDM exchanged. |
+| `InvalidMessageError` | Bytes do not deserialize, signature is bad, or the format is wrong. |
+| `DuplicateMessageError` | Replay of a message already processed. |
+| `InvalidKeyError` | PreKey, signed prekey, or kyber prekey lookup failed. |
+| `StoreError` | SQLCipher layer failure (bad key, locked file, etc.). |
+| `SchemaTooNewError` | Database schema is from a newer library version than the installed one. |
 
 ```typescript
 import {
   IdentityKeyPair,
   LibsignalError,
-  UntrustedIdentityError,
   InvalidMessageError,
+  UntrustedIdentityError,
 } from 'expo-libsignal'
 
 try {
   await IdentityKeyPair.deserialize(corruptedBytes)
 } catch (e) {
   if (e instanceof InvalidMessageError) {
-    // Bytes weren't a valid serialized keypair
+    // Bytes were not a valid serialized keypair.
+  } else if (e instanceof UntrustedIdentityError) {
+    // Identity rotation; surface a safety-number-changed banner.
   } else if (e instanceof LibsignalError) {
-    // Some other libsignal-side issue
+    // Some other libsignal-side issue.
   }
 }
 ```
 
-## Roadmap
+## Threat model
 
-| Phase | Status |
-|---|---|
-| Foundation (identity keys) | ✅ shipped |
-| 1:1 messaging (X3DH, Double Ratchet, PreKey bundles) | ✅ shipped |
-| Default SQLCipher-backed stores | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`; iOS requires the Podfile `post_install` hook shown above) |
-| Groups (Sender Keys) | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`) |
-| Sealed Sender | ✅ shipped (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`) |
-| Ergonomic `SignalClient` facade | ✅ shipped as an example app pattern (Android and iOS Simulator both verified end to end — see `example/SMOKE_TEST_LOG.md`) — `example/src/client/SignalClient.ts` wraps identity + 1:1 + sealed + groups + persistence behind one class; demo on the `Client` tab. Lift candidates noted in `docs/superpowers/specs/2026-06-16-signalclient-facade-design.md` |
-| Provisioning | deferred (libsignal 0.94.4 no longer exposes a standalone `ProvisioningCipher`; only `ProvisioningChatConnection` over Signal's chat layer, which would require binding `Net` / `ConnectionManager` first) |
-| Full example playground, npm publishing | pending |
+Protocol-level guarantees (forward secrecy, post-compromise security,
+PQ hybrid in X3DH, sealed sender, group sender authentication) are
+libsignal's. See [signal.org/docs](https://signal.org/docs/) and the
+[libsignal](https://github.com/signalapp/libsignal) repository.
 
-## How it works under the hood
+Specific to this wrapping:
 
-`expo-libsignal` is a thin Expo Module that bridges libsignal's native types (`IdentityKeyPair`, `SessionRecord`, `PreKeyBundle`, `SenderKeyRecord`, `SenderCertificate`, etc.) to JavaScript as Expo `SharedObject` instances. Each native object is GC-managed via the JSI SharedObject pattern — when the JS reference is collected, the underlying Rust handle is released by a finalizer.
+- Native binding correctness is verified by on-device smoke
+  (`example/SMOKE_TEST_LOG.md`). Not third-party audited.
+- The config plugin pins `LIBSIGNAL_FFI_PREBUILD_CHECKSUM` and verifies
+  it at `pod install`. Bumping libsignal requires updating version and
+  checksum.
+- SQLCipher key: 32 OS-CSPRNG bytes in `expo-secure-store`
+  (`WHEN_UNLOCKED_THIS_DEVICE_ONLY` by default). Override `keyProvider`
+  to own key custody.
+- Schema migrations are forward-only; downgrades throw
+  `SchemaTooNewError`. During 0.x a release may change schema without
+  migration. Release notes flag this when it happens.
+- Provisioning is not bound. libsignal 0.94.4 exposes it only through
+  the chat-connection layer, which we do not wrap.
+- Group membership is the app's responsibility. Shipping a sender key
+  to a non-member adds them to the group.
+- Identity-change UX is the app's responsibility. The library raises
+  `UntrustedIdentityError`; surfacing the safety-number banner is up
+  to you.
 
-The library does not bundle a pre-built Rust FFI — it relies on Signal's official prebuilt artifacts:
-- **iOS:** `LibSignalClient` CocoaPod 0.94.4, which has a script phase that downloads `libsignal-client-ios-build-v0.94.4.tar.gz` from Signal's GitHub release.
-- **Android:** `org.signal:libsignal-android:0.94.4` from Signal's own Maven repo.
+## How it works
 
-Both are pinned by exact version. To bump libsignal, update `LIBSIGNAL_VERSION` and `LIBSIGNAL_IOS_FFI_SHA256` in `plugin/src/index.ts` and the version pin in `ios/ExpoLibsignal.podspec` / `android/build.gradle`.
+No Rust FFI is bundled. The build pulls Signal's prebuilt artifacts:
+
+- **iOS:** `LibSignalClient` CocoaPod 0.94.4.
+- **Android:** `org.signal:libsignal-android:0.94.4` from Signal's
+  Maven repository.
+
+Pinned by exact version. To bump, update `LIBSIGNAL_VERSION` and
+`LIBSIGNAL_IOS_FFI_SHA256` in `plugin/src/index.ts`, and the version
+pin in `ios/ExpoLibsignal.podspec` and `android/build.gradle`.
 
 ## Contributing
 
-Contributions are welcome. Please open an issue first for anything beyond a small fix. The cryptographic surface is stable; the remaining moving parts are packaging (npm), an upcoming pass on whether to lift pieces of the example `SignalClient` facade into the library, and any libsignal version bumps.
-
-## License
-
-AGPL-3.0. See [LICENSE](./LICENSE).
+See [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## Security
 
