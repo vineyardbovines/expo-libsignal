@@ -93,4 +93,65 @@ export class ChatStore {
   async close(): Promise<void> {
     await this.db.closeAsync()
   }
+
+  private rowToConversation(row: Record<string, unknown>): Conversation {
+    return {
+      id: row.id as string,
+      kind: row.kind as 'direct' | 'group',
+      title: row.title as string,
+      participants: JSON.parse(row.participants as string) as Address[],
+      distributionId: (row.distribution_id as string | null) ?? null,
+      sealedDefault: Number(row.sealed_default) === 1,
+      lastMessagePreview: null,
+      lastMessageAt: (row.last_message_at as number | null) ?? null,
+      unreadCount: Number(row.unread_count ?? 0),
+    }
+  }
+
+  async listConversations(): Promise<Conversation[]> {
+    const rows = await this.db.getAllAsync<Record<string, unknown>>(
+      'SELECT * FROM conversations ORDER BY COALESCE(last_message_at, 0) DESC',
+    )
+    return rows.map((r) => this.rowToConversation(r))
+  }
+
+  async getConversation(id: string): Promise<Conversation | null> {
+    const row = await this.db.getFirstAsync<Record<string, unknown>>(
+      'SELECT * FROM conversations WHERE id = ?',
+      [id],
+    )
+    return row === null ? null : this.rowToConversation(row)
+  }
+
+  async createConversation(opts: {
+    id: string
+    kind: 'direct' | 'group'
+    title: string
+    participants: Address[]
+    distributionId?: string
+    sealedDefault?: boolean
+  }): Promise<Conversation> {
+    await this.db.runAsync(
+      'INSERT INTO conversations (id, kind, title, participants, distribution_id, sealed_default) ' +
+        'VALUES (?, ?, ?, ?, ?, ?)',
+      [
+        opts.id,
+        opts.kind,
+        opts.title,
+        JSON.stringify(opts.participants),
+        opts.distributionId ?? null,
+        opts.sealedDefault === true ? 1 : 0,
+      ],
+    )
+    const fetched = await this.getConversation(opts.id)
+    if (fetched === null) throw new Error('createConversation: insert succeeded but read failed')
+    return fetched
+  }
+
+  async setSealedDefault(id: string, sealed: boolean): Promise<void> {
+    await this.db.runAsync(
+      'UPDATE conversations SET sealed_default = ? WHERE id = ?',
+      [sealed ? 1 : 0, id],
+    )
+  }
 }
