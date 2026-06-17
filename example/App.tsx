@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import AliceBobScreen from './src/screens/AliceBobScreen'
+import ChatHomeScreen from './src/screens/ChatHomeScreen'
 import GroupsScreen from './src/screens/GroupsScreen'
 import IdentityScreen from './src/screens/IdentityScreen'
 import PersistenceScreen from './src/screens/PersistenceScreen'
@@ -14,6 +15,7 @@ type Tab =
   | 'groups'
   | 'sealedSender'
   | 'signalClient'
+  | 'chat'
 
 export default function App() {
   const [tab, setTab] = useState<Tab>('identity')
@@ -26,6 +28,7 @@ export default function App() {
         <TabButton current={tab} value="groups" label="Groups" onPress={setTab} />
         <TabButton current={tab} value="sealedSender" label="Sealed" onPress={setTab} />
         <TabButton current={tab} value="signalClient" label="Client" onPress={setTab} />
+        <TabButton current={tab} value="chat" label="Chat" onPress={setTab} />
       </View>
       <View style={styles.screen}>{renderScreen(tab)}</View>
     </View>
@@ -46,6 +49,8 @@ function renderScreen(tab: Tab) {
       return <SealedSenderScreen />
     case 'signalClient':
       return <SignalClientScreen />
+    case 'chat':
+      return <ChatHomeScreen />
   }
 }
 
