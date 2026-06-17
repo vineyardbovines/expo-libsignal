@@ -1,8 +1,18 @@
-# Gifted-Chat Example Implementation Plan
+# Chat Example Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a `Chat` tab in the existing example app that mimics a real chat-app shell using `react-native-gifted-chat`, persona switcher + drill-in navigation, persisted messages, and a `Transport` interface with an in-memory implementation.
+**Mid-execution amendment (2026-06-17):** the original spec called for
+`react-native-gifted-chat`. Every recent version requires four native peer
+dependencies (`react-native-reanimated`, `react-native-keyboard-controller`,
+`react-native-gesture-handler`, `react-native-safe-area-context`), and the
+install path tripped the `file:..` workspace recursion bug repeatedly. We
+flipped to a hand-rolled chat UI for the conversation screen. Same
+integration story for the SignalClient facade; no new native deps.
+Task 1 (install gifted-chat) is skipped. Task 7's conversation screen now
+uses a `ScrollView` of message bubbles + a `TextInput` composer.
+
+**Goal:** Ship a `Chat` tab in the existing example app with a hand-rolled chat UI, persona switcher + drill-in navigation, persisted messages, and a `Transport` interface with an in-memory implementation.
 
 **Architecture:** New chat code lives under `example/src/chat/`. A `ChatStore` over its own SQLCipher database holds conversations and messages. A `Transport` interface decouples envelope shipping; an `InMemoryTransport` singleton brokers between three personas. A `useChatSession` hook composes `SignalClient` + `ChatStore` + `Transport` for one persona-conversation pair. Two new screens (`ChatHomeScreen`, `ChatConversationScreen`) render the shell.
 
