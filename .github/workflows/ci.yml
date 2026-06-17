@@ -11,6 +11,13 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Native iOS/Android example builds are intentionally NOT in CI. We verify
+# native changes via on-device smoke runs (see example/SMOKE_TEST_LOG.md), and
+# the CI versions were brittle against RN/Xcode/runner-image drift while
+# duplicating coverage the smoke flow already provides. CI here is JS-only:
+# lint, typecheck, unit tests. Anyone touching ios/, android/, or the config
+# plugin is responsible for running smoke on both platforms before merging.
+
 jobs:
   lint-and-typecheck:
     name: Lint + Typecheck + Unit Tests
@@ -34,143 +41,3 @@ jobs:
 
       - name: Unit tests
         run: bun run test
-
-  build-ios-example:
-    name: Build iOS example
-    # macos-15 ships Xcode 16.x by default; RN 0.85 requires Xcode 16.1+.
-    # The previous `macos-14` image only has Xcode 15.4, which `pod install`
-    # rejects with "React Native requires XCode >= 16.1. Found 15.4".
-    runs-on: macos-15
-    needs: lint-and-typecheck
-    env:
-      # The plugin downloads the LibSignal FFI prebuild from GitHub releases
-      # during `pod install`. Bumping the timeout helps on slow network days.
-      COCOAPODS_DISABLE_STATS: 'true'
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Select Xcode 16.4
-        # macos-15 carries multiple Xcodes (16.0 through 16.4 and beyond). The
-        # default is 16.0, which RN 0.85's Podfile rejects with "requires
-        # XCode >= 16.1". Pin to 16.4 — current stable 16.x line.
-        run: |
-          sudo xcode-select -s /Applications/Xcode_16.4.app/Contents/Developer
-          xcodebuild -version
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.x
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Setup Ruby (for CocoaPods)
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.3'
-          bundler-cache: false
-
-      - name: Install dependencies (root)
-        run: bun install --frozen-lockfile
-
-      - name: Install dependencies (example)
-        working-directory: example
-        run: bun install --frozen-lockfile
-
-      - name: Build config plugin
-        # `tsc -p plugin` compiles the Expo config plugin used by app.plugin.js.
-        # Must run before `expo prebuild` or the plugin entry point is missing.
-        run: bunx tsc -p plugin
-
-      - name: Symlink expo-libsignal into example node_modules
-        # `expo-libsignal: file:..` resolution via bun can be flaky in CI, and
-        # autolinking expects a real-looking dependency at example/node_modules.
-        # A symlink guarantees the example sees the live workspace package.
-        run: |
-          cd example/node_modules
-          rm -rf expo-libsignal
-          ln -s ../.. expo-libsignal
-
-      - name: Prebuild example app for iOS
-        working-directory: example
-        run: bunx expo prebuild --clean --platform ios --no-install
-
-      - name: Pod install
-        # LibSignalClient.podspec fetches the FFI prebuild tarball via curl
-        # and verifies it against LIBSIGNAL_FFI_PREBUILD_CHECKSUM (injected by
-        # our config plugin into the Podfile).
-        working-directory: example/ios
-        run: pod install
-
-      - name: xcodebuild (Debug, iOS Simulator)
-        working-directory: example/ios
-        run: |
-          set -o pipefail
-          xcodebuild \
-            -workspace expolibsignalexample.xcworkspace \
-            -scheme expolibsignalexample \
-            -configuration Debug \
-            -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath ./build \
-            build CODE_SIGNING_ALLOWED=NO
-
-  build-android-example:
-    name: Build Android example
-    runs-on: ubuntu-latest
-    needs: lint-and-typecheck
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: 1.x
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Setup Java
-        uses: actions/setup-java@v4
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Install dependencies (root)
-        run: bun install --frozen-lockfile
-
-      - name: Install dependencies (example)
-        working-directory: example
-        run: bun install --frozen-lockfile
-
-      - name: Build config plugin
-        # `tsc -p plugin` compiles the Expo config plugin used by app.plugin.js.
-        # Must run before `expo prebuild` or the plugin entry point is missing.
-        run: bunx tsc -p plugin
-
-      - name: Symlink expo-libsignal into example node_modules
-        # `expo-libsignal: file:..` resolution via bun can be flaky in CI, and
-        # autolinking expects a real-looking dependency at example/node_modules.
-        # A symlink guarantees the example sees the live workspace package.
-        run: |
-          cd example/node_modules
-          rm -rf expo-libsignal
-          ln -s ../.. expo-libsignal
-
-      - name: Prebuild example app for Android
-        working-directory: example
-        run: bunx expo prebuild --clean --platform android --no-install
-
-      - name: Gradle assembleDebug
-        # Our plugin injects the Signal Maven repository URL into the
-        # generated android/build.gradle during prebuild; Gradle resolves
-        # org.signal:libsignal-android from there.
-        working-directory: example/android
-        run: ./gradlew assembleDebug --no-daemon --stacktrace
