@@ -221,11 +221,27 @@ export default function ChatHomeScreen() {
         detail: `bob inbox length=${bobInbox.length}`,
       })
 
-      // group: alice creates SKDM and group message
+      // Bob has to reply once so alice's session with bob advances past the
+      // pre-key state before we wrap SKDMs in it. Without this, the welcome
+      // envelope is type=preKeySignal referencing bob's prekey 5000, which
+      // bob already consumed when decrypting step 1. Same for carol.
+      const replyToAlice = await bob.client.send(addressOf('alice'), 'ack')
+      await inMemoryTransport.send(addressOf('alice'), replyToAlice)
+      await new Promise<void>((r) => setTimeout(r, 200))
+      const replyToAlice2 = await carol.client.send(addressOf('alice'), 'ack')
+      await inMemoryTransport.send(addressOf('alice'), replyToAlice2)
+      await new Promise<void>((r) => setTimeout(r, 200))
+
+      // group: alice creates SKDM and group message. The welcome envelopes go
+      // through the persona-level receiver, which awaits processSenderKey...;
+      // the wait window has to be long enough for that async chain to finish
+      // BEFORE the group ciphertext arrives or bob/carol will hit
+      // SenderKeyNotFoundError on decrypt. 500ms is comfortably above what we
+      // see during local smoke runs on a warm sim; tighten if you measure it.
       const group = alice.client.group(GROUP_DISTRIBUTION_ID)
       const welcomes = await group.welcome([addressOf('bob'), addressOf('carol')])
       for (const w of welcomes) await inMemoryTransport.send(w.to, w.envelope)
-      await new Promise<void>((r) => setTimeout(r, 50))
+      await new Promise<void>((r) => setTimeout(r, 500))
       const groupEnv = await group.send('hello group')
       await alice.store.appendMessage(aliceGroup.id, {
         direction: 'outgoing',
@@ -238,7 +254,7 @@ export default function ChatHomeScreen() {
       for (const peer of [addressOf('bob'), addressOf('carol')]) {
         await inMemoryTransport.send(peer, groupEnv)
       }
-      await new Promise<void>((r) => setTimeout(r, 50))
+      await new Promise<void>((r) => setTimeout(r, 500))
       const bobGroupId = (await bob.store.listConversations()).find(
         (c) => c.kind === 'group',
       )?.id
