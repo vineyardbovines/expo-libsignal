@@ -2,6 +2,16 @@
 
 Manual on-device runs of the example app's integration screens, newest first.
 
+## 2026-06-17 — Chat tab verified on iOS Simulator
+
+- iOS simulator (iPhone 17 Pro, iOS 26.4): pass (status:"ok", both scripted smoke steps green across three consecutive runs)
+- Demo: `Chat` tab opens three `SignalClient` + `ChatStore` instances (alice, bob, carol) over their own SQLCipher databases (`${persona}.chat-libsignal.db` for libsignal state and `${persona}.chat.db` for messages and conversations). Pre-creates two direct conversations and one group per persona, mints a sealed-sender cert chain, and exposes a hand-rolled chat UI (ScrollView of bubbles + composer) per conversation. Persona switcher in the header swaps the active store/client; drill-in navigation is local component state. Transport interface (`Transport`) with an `InMemoryTransport` singleton brokers between personas.
+- Android: not run this session. The chat tab is pure JS on top of the native module set verified by the SignalClient phase smoke (`2026-06-16`), so Android should pass the same way; pending a re-run when the emulator is back up.
+- Three example-side bugs surfaced and fixed during smoke:
+  - Pre-key reuse on welcome wrap. Step 1 of the scripted smoke consumed bob's prekey 5000 in his decryptPreKeySignal of alice's "hi bob". Alice's session with bob was still pending pre-key (no reply yet), so the SignalGroupClient.welcome wrap was another preKeySignal envelope referencing the already-consumed prekey 5000. Bob's decrypt threw InvalidKeyError, the welcome never processed, and the group ciphertext that followed threw SenderKeyNotFoundError. Fix: bob and carol each send a one-shot "ack" back to alice before welcomes ship, advancing alice's outbound sessions past the pre-key state. Welcomes are then signal-type and decrypt cleanly.
+  - Async receive timing. The persona-level `attachReceiver` is fire-and-forget per envelope (subscriber callback wraps an async IIFE), so welcome processing and group decrypt raced. Bumped smoke wait windows from 50ms to 500ms between alice's welcome ship and group send, and again between group send and assertion. Real apps would replace this with an event-driven refresh.
+  - react-native-gifted-chat install dance. The original plan called for gifted-chat. Every recent version pulls in four native peer deps (reanimated, keyboard-controller, gesture-handler, safe-area-context), and `expo install` plus `bun install` repeatedly hung on the file:.. workspace recursion. Flipped mid-execution to a hand-rolled chat UI (ScrollView of bubbles + TextInput composer); same integration story for the SignalClient facade with no new native deps. The plan doc carries a mid-execution amendment note.
+
 ## 2026-06-16 — Store layer migrated to expo-sqlite, verified on both platforms
 
 - iOS simulator (iPhone 17 Pro, iOS 26.4): pass (SignalClient screen 4 of 4 scripted steps green over expo-sqlite + SQLCipher)
