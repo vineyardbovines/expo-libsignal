@@ -2,6 +2,7 @@ export { GroupCipher } from './core/GroupCipher'
 export { GroupSessionBuilder } from './core/GroupSessionBuilder'
 export { IdentityKey, IdentityKeyPair, PrivateKey } from './core/IdentityKeyPair'
 export { KyberPreKeyRecord } from './core/KyberPreKeyRecord'
+export { type CiphertextMessage, PreKeySignalMessage, SignalMessage } from './core/messages'
 export {
   type Address,
   dispatchReceived,
@@ -10,7 +11,6 @@ export {
   type ReceivedHandlers,
   type Transport,
 } from './core/messaging'
-export { type CiphertextMessage, PreKeySignalMessage, SignalMessage } from './core/messages'
 export { PreKeyBundle, type PreKeyBundleArgs } from './core/PreKeyBundle'
 export { PreKeyRecord } from './core/PreKeyRecord'
 export { ProtocolAddress } from './core/ProtocolAddress'

@@ -52,12 +52,8 @@ export interface Transport {
  */
 export type ReceivedHandlers = {
   message?: (r: Extract<Received, { kind: 'message' }>) => Promise<void> | void
-  'group-message'?: (
-    r: Extract<Received, { kind: 'group-message' }>,
-  ) => Promise<void> | void
-  'group-welcome'?: (
-    r: Extract<Received, { kind: 'group-welcome' }>,
-  ) => Promise<void> | void
+  'group-message'?: (r: Extract<Received, { kind: 'group-message' }>) => Promise<void> | void
+  'group-welcome'?: (r: Extract<Received, { kind: 'group-welcome' }>) => Promise<void> | void
 }
 
 /**
