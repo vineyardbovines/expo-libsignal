@@ -24,12 +24,15 @@ Android API 24+. Legacy bridge is not supported.
 
 ## Quickstart
 
-Two personas exchange a message. Each holds a `SignalClient` from
-`example/src/client/SignalClient.ts`. Copy it into your app and adapt;
-this pattern will likely move into the library after some real-world
-feedback.
+Two personas exchange a message. Each holds a `SignalClient`, the
+facade in
+[`example/src/client/SignalClient.ts`](./example/src/client/SignalClient.ts).
+It is not exported from the package — copy the file into your app and
+adapt. The pattern will likely move into the library after some
+real-world feedback.
 
 ```typescript
+// Assumes you copied example/src/client/SignalClient.ts to ./client/SignalClient.ts.
 import { SignalClient } from './client/SignalClient'
 
 const alice = await SignalClient.open({

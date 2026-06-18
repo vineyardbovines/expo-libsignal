@@ -7,7 +7,6 @@
 For vulnerabilities **in this wrapper** (the binding layer, the TypeScript surface, the config plugin, the SQLCipher store implementation when it lands):
 
 - Open a private security advisory on GitHub: `https://github.com/vineyardbovines/expo-libsignal/security/advisories/new`
-- Or email `security@<domain>` (replace with the maintainer's email when published).
 - Acknowledgement within 72 hours; critical patches within 7 days where feasible.
 
 For vulnerabilities **in libsignal itself** — the Rust crypto code, the Signal Protocol specification — please report directly to Signal: https://signal.org/security/
