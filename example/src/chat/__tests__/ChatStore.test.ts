@@ -73,7 +73,9 @@ describe('chatSchema', () => {
 import { ChatStore } from '../ChatStore'
 
 // In-memory fake SQL surface so ChatStore can be exercised without
-// expo-sqlite. We mock the requireExpoSqlite/requireSecureStore paths.
+// expo-sqlite. `virtual: true` keeps this working under root-only
+// `bun install --frozen-lockfile` (CI): example/node_modules/ is empty,
+// so jest-resolve cannot find the real expo-sqlite to back the mock.
 jest.mock('expo-sqlite', () => {
   type Row = Record<string, unknown>
   const conversations: Row[] = []
@@ -176,13 +178,13 @@ jest.mock('expo-sqlite', () => {
       schemaVersion = 0
     },
   }
-})
+}, { virtual: true })
 
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(async () => 'cafef00d'.repeat(8)),
   setItemAsync: jest.fn(async () => {}),
   WHEN_UNLOCKED_THIS_DEVICE_ONLY: 1,
-}))
+}), { virtual: true })
 
 jest.mock('../../../../src/ExpoLibsignalModule', () => ({
   NativeModule: {
