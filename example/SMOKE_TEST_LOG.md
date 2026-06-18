@@ -2,6 +2,10 @@
 
 Manual on-device runs of the example app's integration screens, newest first.
 
+## 2026-06-18 — Chat tab verified on Android
+
+- Android emulator (Pixel 10 AVD): pass. Same scripted smoke as the iOS run on 2026-06-17, status:"ok" across runs. Closes the "pending Android re-run" caveat on the prior entry.
+
 ## 2026-06-17 — Chat tab verified on iOS Simulator
 
 - iOS simulator (iPhone 17 Pro, iOS 26.4): pass (status:"ok", both scripted smoke steps green across three consecutive runs)
