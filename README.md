@@ -77,6 +77,11 @@ both platforms.
 bun add expo-libsignal
 ```
 
+If you'll use the bundled SQLCipher store, also install `expo-sqlite`
+and `expo-secure-store` — see [Persistence](#persistence) for the full
+setup. Other peers (`expo`, `react`, `react-native`) are already
+present in any Expo + React Native app.
+
 Add the config plugin to `app.json` or `app.config.ts`:
 
 ```json

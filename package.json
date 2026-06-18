@@ -68,17 +68,17 @@
     "typescript": "~6.0.3"
   },
   "peerDependencies": {
-    "@op-engineering/op-sqlite": "*",
     "expo": ">=55.0.0",
     "expo-secure-store": "*",
+    "expo-sqlite": "*",
     "react": "*",
     "react-native": "*"
   },
   "peerDependenciesMeta": {
-    "@op-engineering/op-sqlite": {
+    "expo-secure-store": {
       "optional": true
     },
-    "expo-secure-store": {
+    "expo-sqlite": {
       "optional": true
     }
   },
