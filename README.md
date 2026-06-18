@@ -4,23 +4,26 @@ The Signal Protocol as an Expo Module for React Native apps. Identity, 1:1
 messaging (X3DH, Double Ratchet, Kyber), groups (Sender Keys), and Sealed
 Sender. Pluggable stores with a SQLCipher-backed implementation included.
 
-**License:** AGPL-3.0. Linking this into a binary makes that binary AGPL-3.0
-or compatible. See [LICENSE](./LICENSE).
+| Runtime      | Supported Versions |
+| ------------ | ------------------ |
+| Expo         | 55+                |
+| React Native | 0.83+              |
+| Android      | 7+ (SDK 36)        |
+| iOS          | 15.1+              |
 
-**Supported runtimes:** Expo SDK 55+, React Native new architecture, iOS 15.0+,
-Android API 24+. Legacy bridge is not supported.
+New architecture is required.
 
 ## Roadmap
 
-| Surface | State |
-|---|---|
-| Identity (`IdentityKeyPair`, `ProtocolAddress`) | shipped |
-| 1:1 messaging (`SessionBuilder`, `SessionCipher`), X3DH, Double Ratchet, Kyber | shipped |
-| Default SQLCipher-backed store (`expo-libsignal/stores`) | shipped |
-| Groups (`GroupSessionBuilder`, `GroupCipher`, Sender Keys) | shipped |
-| Sealed Sender (`SealedSender`, `SenderCertificate`, `ServerCertificate`) | shipped |
-| Example `SignalClient` facade (in `example/src/client/`) | shipped |
-| Provisioning | deferred (no standalone primitive in libsignal 0.94.4) |
+| Surface                                                                        | State                                                  |
+| ------------------------------------------------------------------------------ | ------------------------------------------------------ |
+| Identity (`IdentityKeyPair`, `ProtocolAddress`)                                | shipped                                                |
+| 1:1 messaging (`SessionBuilder`, `SessionCipher`), X3DH, Double Ratchet, Kyber | shipped                                                |
+| Default SQLCipher-backed store (`expo-libsignal/stores`)                       | shipped                                                |
+| Groups (`GroupSessionBuilder`, `GroupCipher`, Sender Keys)                     | shipped                                                |
+| Sealed Sender (`SealedSender`, `SenderCertificate`, `ServerCertificate`)       | shipped                                                |
+| Example `SignalClient` facade (in `example/src/client/`)                       | shipped                                                |
+| Provisioning                                                                   | deferred (no standalone primitive in libsignal 0.94.4) |
 
 ## Quickstart
 
@@ -326,16 +329,16 @@ only surface after decryption begins.
 Every error from the library extends `LibsignalError`. Specific
 subclasses let callers act on the cause without parsing strings:
 
-| Class | Cause |
-|---|---|
-| `UntrustedIdentityError` | Remote identity changed and the store rejected it. |
-| `SessionNotFoundError` | Tried to encrypt or fetch a session that does not exist. |
-| `SenderKeyNotFoundError` | Group encrypt or decrypt with no SKDM exchanged. |
-| `InvalidMessageError` | Bytes do not deserialize, signature is bad, or the format is wrong. |
-| `DuplicateMessageError` | Replay of a message already processed. |
-| `InvalidKeyError` | PreKey, signed prekey, or kyber prekey lookup failed. |
-| `StoreError` | SQLCipher layer failure (bad key, locked file, etc.). |
-| `SchemaTooNewError` | Database schema is from a newer library version than the installed one. |
+| Class                    | Cause                                                                   |
+| ------------------------ | ----------------------------------------------------------------------- |
+| `UntrustedIdentityError` | Remote identity changed and the store rejected it.                      |
+| `SessionNotFoundError`   | Tried to encrypt or fetch a session that does not exist.                |
+| `SenderKeyNotFoundError` | Group encrypt or decrypt with no SKDM exchanged.                        |
+| `InvalidMessageError`    | Bytes do not deserialize, signature is bad, or the format is wrong.     |
+| `DuplicateMessageError`  | Replay of a message already processed.                                  |
+| `InvalidKeyError`        | PreKey, signed prekey, or kyber prekey lookup failed.                   |
+| `StoreError`             | SQLCipher layer failure (bad key, locked file, etc.).                   |
+| `SchemaTooNewError`      | Database schema is from a newer library version than the installed one. |
 
 ```typescript
 import {
@@ -397,6 +400,10 @@ No Rust FFI is bundled. The build pulls Signal's prebuilt artifacts:
 Pinned by exact version. To bump, update `LIBSIGNAL_VERSION` and
 `LIBSIGNAL_IOS_FFI_SHA256` in `plugin/src/index.ts`, and the version
 pin in `ios/ExpoLibsignal.podspec` and `android/build.gradle`.
+
+## License
+
+See [LICENSE](./LICENSE).
 
 ## Contributing
 
