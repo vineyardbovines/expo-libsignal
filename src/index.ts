@@ -1,3 +1,4 @@
+export { Fingerprint, type FingerprintNewArgs, ScannableFingerprint } from './core/Fingerprint'
 export { GroupCipher } from './core/GroupCipher'
 export { GroupSessionBuilder } from './core/GroupSessionBuilder'
 export { IdentityKey, IdentityKeyPair, PrivateKey } from './core/IdentityKeyPair'

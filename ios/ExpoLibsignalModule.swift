@@ -548,5 +548,28 @@ public final class ExpoLibsignalModule: Module {
         throw Exception(name: "LibsignalError", description: "\(error)")
       }
     }
+
+    AsyncFunction("fingerprintCreateOp") { (version: Int, iterations: Int, localIdentifier: Data, localKey: Data, remoteIdentifier: Data, remoteKey: Data) -> FingerprintCreateResult in
+      do {
+        return try runFingerprintCreateOp(
+          version: version,
+          iterations: iterations,
+          localIdentifier: localIdentifier,
+          localKeyBytes: localKey,
+          remoteIdentifier: remoteIdentifier,
+          remoteKeyBytes: remoteKey
+        )
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
+
+    AsyncFunction("compareScannableFingerprintsOp") { (a: Data, b: Data) -> Bool in
+      do {
+        return try runCompareScannableFingerprintsOp(a: a, b: b)
+      } catch {
+        throw Exception(name: "LibsignalError", description: "\(error)")
+      }
+    }
   }
 }

@@ -535,5 +535,21 @@ class ExpoLibsignalModule : Module() {
         throw RuntimeException(mapSignalError(e).message)
       }
     }
+
+    AsyncFunction("fingerprintCreateOp") Coroutine { version: Int, iterations: Int, localIdentifier: ByteArray, localKey: ByteArray, remoteIdentifier: ByteArray, remoteKey: ByteArray ->
+      try {
+        runFingerprintCreateOp(version, iterations, localIdentifier, localKey, remoteIdentifier, remoteKey)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
+
+    AsyncFunction("compareScannableFingerprintsOp") Coroutine { a: ByteArray, b: ByteArray ->
+      try {
+        runCompareScannableFingerprintsOp(a, b)
+      } catch (e: Throwable) {
+        throw RuntimeException(mapSignalError(e).message)
+      }
+    }
   }
 }
