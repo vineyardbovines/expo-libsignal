@@ -1,6 +1,6 @@
 {
   "name": "expo-libsignal",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Expo Module wrapping signalapp/libsignal — Signal Protocol cryptography for React Native.",
   "main": "build/index.js",
   "types": "build/index.d.ts",

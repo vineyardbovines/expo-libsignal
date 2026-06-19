@@ -2,6 +2,17 @@
 
 All notable changes to `expo-libsignal` are documented here. Format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/). 0.x releases may change the SQLCipher store schema without a migration path — entries call this out when it happens.
 
+
+## [0.2.0](https://github.com/vineyardbovines/expo-libsignal/compare/v0.1.0...v0.2.0) (2026-06-19)
+
+### Features
+
+* **fingerprint:** add Fingerprint + ScannableFingerprint to v0.94.x surface ([cb613ec](https://github.com/vineyardbovines/expo-libsignal/commit/cb613ec40cbea0fe6c33b6206da66bf9ac5702d4))
+
+### Bug Fixes
+
+* peer deps ([9d6b40d](https://github.com/vineyardbovines/expo-libsignal/commit/9d6b40da616b6c56cd5fe10cbfcbe59a03eddd45))
+
 ## 0.1.0 — 2026-06-18
 
 First public release. Wraps libsignal 0.94.4 (iOS pod `LibSignalClient`, Android `org.signal:libsignal-android`).
